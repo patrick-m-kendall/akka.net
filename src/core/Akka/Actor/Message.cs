@@ -17,28 +17,23 @@ namespace Akka.Actor
         /// <summary>
         /// Initializes a new instance of the <see cref="Envelope"/> struct.
         /// </summary>
-        /// <param name="message">TBD</param>
-        /// <param name="sender">TBD</param>
-        /// <param name="system">TBD</param>
+        /// <param name="message">The message being sent.</param>
+        /// <param name="sender">The actor who sent the message.</param>
+        /// <param name="system">The current actor system.</param>
         /// <exception cref="ArgumentNullException">
         /// This exception is thrown if the given <paramref name="message"/> is undefined.
         /// </exception>
         public Envelope(object message, IActorRef sender, ActorSystem system)
         {
-            if (message == null)
-            {
-                throw new ArgumentNullException(nameof(message), "The message cannot be null.");
-            }
-
-            Message = message;
+            Message = message ?? throw new ArgumentNullException(nameof(message), "The message cannot be null.");
             Sender = sender != ActorRefs.NoSender ? sender : system.DeadLetters;
         }
 
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="Envelope"/> struct.
         /// </summary>
-        /// <param name="message">TBD</param>
-        /// <param name="sender">TBD</param>
+        /// <param name="message">The message being sent.</param>
+        /// <param name="sender">The actor who sent the message.</param>
         public Envelope(object message, IActorRef sender)
         {
             Message = message;
@@ -58,9 +53,9 @@ namespace Akka.Actor
         public object Message { get; private set; }
 
         /// <summary>
-        /// TBD
+        /// Converts the <see cref="Envelope"/> to a string representation.
         /// </summary>
-        /// <returns>TBD</returns>
+        /// <returns>A string.</returns>
         public override string ToString()
         {
             return "<" + (Message ?? "null") + "> from " + (Sender == ActorRefs.NoSender ? "NoSender" : Sender.ToString());

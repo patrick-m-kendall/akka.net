@@ -9,15 +9,31 @@ using System;
 
 namespace Akka.DistributedData
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     public interface IKey
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         string Id { get; }
     }
 
-    public interface IKey<out T> : IKey { }
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    public interface IKey<out T> : IKey where T : IReplicatedData { }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     interface IKeyWithGenericType : IKey
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         Type Type { get; }
     }
 
@@ -29,15 +45,24 @@ namespace Akka.DistributedData
     /// Specific classes are provided for the built in data types, e.g. <see cref="ORSetKey{T}"/>,
     /// and you can create your own keys.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public abstract class Key<T> : IKey<T> where T : IReplicatedData
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public string Id { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="id">TBD</param>
         protected Key(string id)
         {
             Id = id;
         }
 
+        /// <inheritdoc/>
         public bool Equals(IKey key)
         {
             if (ReferenceEquals(key, null)) return false;
@@ -46,12 +71,20 @@ namespace Akka.DistributedData
             return Id == key.Id;
         }
 
+        /// <inheritdoc/>
         public sealed override bool Equals(object obj) => obj is IKey && Equals((IKey) obj);
 
+        /// <inheritdoc/>
         public override int GetHashCode() => Id.GetHashCode();
 
+        /// <inheritdoc/>
         public override string ToString() => Id;
 
+        /// <summary>
+        /// Performs an implicit conversion from <see cref="Akka.DistributedData.Key{T}" /> to <see cref="System.String" />.
+        /// </summary>
+        /// <param name="key">The key to convert</param>
+        /// <returns>The result of the conversion</returns>
         public static implicit operator string(Key<T> key) => key.Id;
     }
 }

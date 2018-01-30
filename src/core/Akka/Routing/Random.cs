@@ -92,10 +92,10 @@ namespace Akka.Routing
         }
 
         /// <summary>
-        /// TBD
+        /// Used by the <see cref="RoutedActorCell" /> to determine the initial number of routees.
         /// </summary>
-        /// <param name="system">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="system">The actor system that owns this router.</param>
+        /// <returns>The number of routees associated with this pool.</returns>
         public override int GetNrOfInstances(ActorSystem system)
         {
             return NrOfInstances;
@@ -154,38 +154,28 @@ namespace Akka.Routing
 
         private RouterConfig OverrideUnsetConfig(RouterConfig other)
         {
-            if (other is NoRouter)
+            if (other is Pool pool)
             {
-                return this;
-            }
-            else
-            {
-                var pool = other as Pool;
-                if (pool != null)
+                RandomPool wssConf;
+
+                if (SupervisorStrategy != null
+                    && SupervisorStrategy.Equals(DefaultSupervisorStrategy)
+                    && !pool.SupervisorStrategy.Equals(DefaultSupervisorStrategy))
                 {
-                    RandomPool wssConf;
-
-                    if (SupervisorStrategy != null
-                        && SupervisorStrategy.Equals(Pool.DefaultSupervisorStrategy)
-                        && !(pool.SupervisorStrategy.Equals(Pool.DefaultSupervisorStrategy)))
-                    {
-                        wssConf = this.WithSupervisorStrategy(pool.SupervisorStrategy);
-                    }
-                    else
-                    {
-                        wssConf = this;
-                    }
-
-                    if (wssConf.Resizer == null && pool.Resizer != null)
-                        return wssConf.WithResizer(pool.Resizer);
-
-                    return wssConf;
+                    wssConf = WithSupervisorStrategy(pool.SupervisorStrategy);
                 }
                 else
                 {
-                    return this;
+                    wssConf = this;
                 }
+
+                if (wssConf.Resizer == null && pool.Resizer != null)
+                    return wssConf.WithResizer(pool.Resizer);
+
+                return wssConf;
             }
+
+            return this;
         }
 
         /// <summary>
@@ -294,10 +284,10 @@ namespace Akka.Routing
         }
 
         /// <summary>
-        /// TBD
+        /// Retrieves the actor paths used by this router during routee selection.
         /// </summary>
-        /// <param name="system">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="system">The actor system that owns this router.</param>
+        /// <returns>An enumeration of actor paths used during routee selection</returns>
         public override IEnumerable<string> GetPaths(ActorSystem system)
         {
             return Paths;

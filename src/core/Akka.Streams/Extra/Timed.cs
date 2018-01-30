@@ -7,6 +7,7 @@
 
 using System;
 using System.Diagnostics;
+using Akka.Annotations;
 using Akka.Streams.Dsl;
 using Akka.Streams.Implementation.Fusing;
 using Akka.Streams.Stage;
@@ -26,6 +27,15 @@ namespace Akka.Streams.Extra
         /// 
         /// Measures time from receiving the first element and completion events - one for each subscriber of this <see cref="IFlow{TOut,TMat}"/>.
         /// </summary>
+        /// <typeparam name="TIn">TBD</typeparam>
+        /// <typeparam name="TOut">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
+        /// <typeparam name="TMat2">TBD</typeparam>
+        /// <param name="source">TBD</param>
+        /// <param name="measuredOps">TBD</param>
+        /// <param name="onComplete">TBD</param>
+        /// <returns>TBD</returns>
+        [InternalApi]
         public static Source<TOut, TMat2> Timed<TIn, TOut, TMat, TMat2>(Source<TIn, TMat> source, Func<Source<TIn, TMat>, Source<TOut, TMat2>> measuredOps, Action<TimeSpan> onComplete)
         {
             var ctx = new TimedFlowContext();
@@ -41,6 +51,15 @@ namespace Akka.Streams.Extra
         /// 
         /// Measures time from receiving the first element and completion events - one for each subscriber of this <see cref="IFlow{TOut,TMat}"/>.
         /// </summary>
+        /// <typeparam name="TIn">TBD</typeparam>
+        /// <typeparam name="TOut">TBD</typeparam>
+        /// <typeparam name="TOut2">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
+        /// <typeparam name="TMat2">TBD</typeparam>
+        /// <param name="flow">TBD</param>
+        /// <param name="measuredOps">TBD</param>
+        /// <param name="onComplete">TBD</param>
+        /// <returns>TBD</returns>
         public static Flow<TIn, TOut2, TMat2> Timed<TIn, TOut, TOut2, TMat, TMat2>(Flow<TIn, TOut, TMat> flow, Func<Flow<TIn, TOut, TMat>, Flow<TIn, TOut2, TMat2>> measuredOps, Action<TimeSpan> onComplete)
         {
             // todo is there any other way to provide this for Flow, without duplicating impl?
@@ -66,25 +85,45 @@ namespace Akka.Streams.Extra
         /// 
         /// Measures rolling interval between immediately subsequent `matching(o: O)` elements.
         /// </summary>
+        /// <typeparam name="TIn">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
+        /// <param name="flow">TBD</param>
+        /// <param name="matching">TBD</param>
+        /// <param name="onInterval">TBD</param>
+        /// <returns>TBD</returns>
+        [InternalApi]
         public static IFlow<TIn, TMat> TimedIntervalBetween<TIn, TMat>(IFlow<TIn, TMat> flow, Func<TIn, bool> matching, Action<TimeSpan> onInterval)
         {
             var timedInterval =
                 Flow.Create<TIn>()
-                    .Via(new TimedIntervall<TIn>(matching, onInterval))
+                    .Via(new TimedInterval<TIn>(matching, onInterval))
                     .Named("timedInterval");
 
             return flow.Via(timedInterval);
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal static class Timed
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal sealed class TimedFlowContext
         {
             private readonly Stopwatch _stopwatch = new Stopwatch();
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public void Start() => _stopwatch.Start();
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <returns>TBD</returns>
             public TimeSpan Stop()
             {
                 _stopwatch.Stop();
@@ -92,6 +131,10 @@ namespace Akka.Streams.Extra
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
         internal sealed class StartTimed<T> : SimpleLinearGraphStage<T>
         {
             #region Loigc 
@@ -126,14 +169,27 @@ namespace Akka.Streams.Extra
 
             private readonly TimedFlowContext _timedContext;
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="timedContext">TBD</param>
             public StartTimed(TimedFlowContext timedContext)
             {
                 _timedContext = timedContext;
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="inheritedAttributes">TBD</param>
+            /// <returns>TBD</returns>
             protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
         internal sealed class StopTime<T> : SimpleLinearGraphStage<T>
         {
             #region Loigc 
@@ -178,26 +234,40 @@ namespace Akka.Streams.Extra
             private readonly TimedFlowContext _timedContext;
             private readonly Action<TimeSpan> _onComplete;
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="timedContext">TBD</param>
+            /// <param name="onComplete">TBD</param>
             public StopTime(TimedFlowContext timedContext, Action<TimeSpan> onComplete)
             {
                 _timedContext = timedContext;
                 _onComplete = onComplete;
             }
-            
+
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="inheritedAttributes">TBD</param>
+            /// <returns>TBD</returns>
             protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
         }
 
-        internal sealed class TimedIntervall<T> : SimpleLinearGraphStage<T>
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        internal sealed class TimedInterval<T> : SimpleLinearGraphStage<T>
         {
             #region Loigc 
 
             private sealed class Logic : InAndOutGraphStageLogic
             {
-                private readonly TimedIntervall<T> _stage;
+                private readonly TimedInterval<T> _stage;
                 private long _previousTicks;
                 private long _matched;
 
-                public Logic(TimedIntervall<T> stage) : base(stage.Shape)
+                public Logic(TimedInterval<T> stage) : base(stage.Shape)
                 {
                     _stage = stage;
 
@@ -234,13 +304,23 @@ namespace Akka.Streams.Extra
             
             private readonly Func<T, bool> _matching;
             private readonly Action<TimeSpan> _onInterval;
-            
-            public TimedIntervall(Func<T, bool> matching, Action<TimeSpan> onInterval)
+
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="matching">TBD</param>
+            /// <param name="onInterval">TBD</param>
+            public TimedInterval(Func<T, bool> matching, Action<TimeSpan> onInterval)
             {
                 _matching = matching;
                 _onInterval = onInterval;
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="inheritedAttributes">TBD</param>
+            /// <returns>TBD</returns>
             protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
         }
     }

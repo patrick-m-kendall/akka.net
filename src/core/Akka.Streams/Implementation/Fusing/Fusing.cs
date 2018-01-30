@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using Akka.Pattern;
 using Akka.Streams.Stage;
 using Akka.Streams.Util;
@@ -20,25 +21,33 @@ using Transform = Akka.Streams.Implementation.StreamLayout.Transform;
 
 namespace Akka.Streams.Implementation.Fusing
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal static class Fusing
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly bool IsDebug = false;
 
         /// <summary>
         /// Fuse everything that is not forbidden via AsyncBoundary attribute.
         /// </summary>
-        /// <returns></returns>
+        /// <typeparam name="TShape">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
+        /// <param name="graph">TBD</param>
+        /// <returns>TBD</returns>
         public static Streams.Fusing.FusedGraph<TShape, TMat> Aggressive<TShape, TMat>(IGraph<TShape, TMat> graph)
             where TShape : Shape
         {
-            var fusedGraph = graph as Streams.Fusing.FusedGraph<TShape, TMat>;
-            if (fusedGraph != null)
+            if (graph is Streams.Fusing.FusedGraph<TShape, TMat> fusedGraph)
                 return fusedGraph;
 
             var structInfo = new BuildStructuralInfo();
 
             // First perform normalization by descending the module tree and recording information in the BuildStructuralInfo instance.
-            IEnumerable<KeyValuePair<IModule, IMaterializedValueNode>> materializedValue;
+            LinkedList<KeyValuePair<IModule, IMaterializedValueNode>> materializedValue;
 
             try
             {
@@ -57,7 +66,8 @@ namespace Akka.Streams.Implementation.Fusing
                 structInfo.NewOutlets(graph.Shape.Outlets));
 
             // Extract the full topological information from the builder before removing assembly-internal (fused) wirings in the next step.
-            var info = structInfo.ToInfo();
+            var info = structInfo.ToInfo(shape,
+                materializedValue.Select(pair => Tuple.Create(pair.Key, pair.Value)).ToList());
 
             // Perform the fusing of `structInfo.groups` into GraphModules (leaving them as they are for non - fusable modules).
             structInfo.RemoveInternalWires();
@@ -78,6 +88,42 @@ namespace Akka.Streams.Implementation.Fusing
             if (IsDebug) Console.WriteLine(module.ToString());
 
             return new Streams.Fusing.FusedGraph<TShape, TMat>(module, (TShape) shape);
+        }
+
+        /// <summary>
+        /// Return the <see cref="StructuralInfoModule"/> for this Graph without any fusing
+        /// </summary>
+        /// <typeparam name="TShape">TBD</typeparam>
+        /// <typeparam name="TMat"></typeparam>
+        /// <param name="graph"></param>
+        /// <param name="attributes"></param>
+        /// <returns></returns>
+        public static StructuralInfoModule StructuralInfo<TShape, TMat>(IGraph<TShape, TMat> graph, Attributes attributes) where TShape : Shape
+        {
+            var structuralInfo = new BuildStructuralInfo();
+
+            // First perform normalization by descending the module tree and recording
+            // information in the BuildStructuralInfo instance.
+
+            try
+            {
+                var materializedValue = Descend<TMat>(graph.Module, Attributes.None, structuralInfo,
+                    structuralInfo.CreateGroup(0), 0);
+
+                // Then create a copy of the original Shape with the new copied ports.
+                var shape = graph.Shape.CopyFromPorts(structuralInfo.NewInlets(graph.Shape.Inlets),
+                    structuralInfo.NewOutlets(graph.Shape.Outlets));
+
+                // Extract the full topological information from the builder
+                return structuralInfo.ToInfo(shape, materializedValue.Select(pair=> Tuple.Create(pair.Key, pair.Value)).ToList(), attributes);
+            }
+            catch (Exception)
+            {
+                if(IsDebug)
+                    structuralInfo.Dump();
+
+                throw;
+            }
         }
 
         /// <summary>
@@ -154,10 +200,9 @@ namespace Akka.Streams.Implementation.Fusing
                     {
                         var copyInlet = copyInlets.Current;
                         var originalInlet = originalInlets.Current;
-                        OutPort outport;
-                        ISet<IModule> g;
-                        var isInternal = ups.TryGetValue(copyInlet, out outport) && outGroup.TryGetValue(outport, out g) &&
-                                         g == group;
+                        var isInternal = ups.TryGetValue(copyInlet, out var outport) 
+                            && outGroup.TryGetValue(outport, out var g) 
+                            && g == group;
                         if (isInternal)
                         {
                             ups.Remove(copyInlet);
@@ -199,8 +244,7 @@ namespace Akka.Streams.Implementation.Fusing
                     {
                         var copyOutlet = copyOutlets.Current;
                         var originalOutlet = originalOutlets.Current;
-                        int idx;
-                        if (outConns.TryGetValue(copyOutlet, out idx))
+                        if (outConns.TryGetValue(copyOutlet, out int idx))
                         {
                             outConns.Remove(copyOutlet);
                             outsB2[idx] = originalOutlet;
@@ -268,11 +312,11 @@ namespace Akka.Streams.Implementation.Fusing
         /// 
         /// The materialized value computation is rewritten as well in that all
         /// leaf nodes point to the copied modules and all nested computations are
-        /// “inlined”, resulting in only one big computation tree for the whole
+        /// "inlined", resulting in only one big computation tree for the whole
         /// normalized overall module. The contained MaterializedValueSource stages
         /// are also rewritten to point to the copied MaterializedValueNodes. This
         /// correspondence is then used during materialization to trigger these sources
-        /// when “their” node has received its value.
+        /// when "their" node has received its value.
         /// </summary>
         private static LinkedList<KeyValuePair<IModule, IMaterializedValueNode>> Descend<T>(
             IModule module,
@@ -388,14 +432,13 @@ namespace Akka.Streams.Implementation.Fusing
             else
             {
                 var allAttributes = inheritedAttributes.And(module.Attributes);
-                if (module is CopiedModule)
+                if (module is CopiedModule copied)
                 {
-                    var copied = (CopiedModule) module;
                     var result = Descend<T>(copied.CopyOf, allAttributes, structInfo, localGroup, indent + 1);
                     if (result.Count == 0)
                         throw new IllegalStateException("Descend returned empty result from CopiedModule");
 
-                    result.AddFirst(new KeyValuePair<IModule, IMaterializedValueNode>(module, result.First.Value.Value));
+                    result.AddFirst(new KeyValuePair<IModule, IMaterializedValueNode>(copied, result.First.Value.Value));
 
                     structInfo.Rewire(copied.CopyOf.Shape, copied.Shape, indent);
                     return result;
@@ -444,8 +487,7 @@ namespace Akka.Streams.Implementation.Fusing
                         var ms = (IMaterializedValueSource) ((GraphStageModule) c.CopyOf).Stage;
 
                         IMaterializedValueNode mapped;
-                        var atomic = ms.Computation as Atomic;
-                        if (atomic != null)
+                        if (ms.Computation is Atomic atomic)
                             mapped = subMat[atomic.Module];
                         else if (ms.Computation == StreamLayout.Ignore.Instance)
                             mapped = ms.Computation;
@@ -475,25 +517,22 @@ namespace Akka.Streams.Implementation.Fusing
         /// </summary>
         private static IMaterializedValueNode RewriteMaterializer(IDictionary<IModule, IMaterializedValueNode> subMat, IMaterializedValueNode mat, Dictionary<IMaterializedValueNode, IMaterializedValueNode> mapping)
         {
-            if (mat is Atomic)
+            if (mat is Atomic atomic)
             {
-                var atomic = (Atomic) mat;
                 var result = subMat[atomic.Module];
-                mapping.Put(mat, result);
+                mapping.Put(atomic, result);
                 return result;
             }
-            if (mat is Combine)
+            if (mat is Combine combine)
             {
-                var combine = (Combine) mat;
                 var result = new Combine(combine.Combinator, RewriteMaterializer(subMat, combine.Left, mapping), RewriteMaterializer(subMat, combine.Right, mapping));
-                mapping.Put(mat, result);
+                mapping.Put(combine, result);
                 return result;
             }
-            if (mat is Transform)
+            if (mat is Transform transform)
             {
-                var transform = (Transform) mat;
                 var result = new Transform(transform.Transformator, RewriteMaterializer(subMat, transform.Node, mapping));
-                mapping.Put(mat, result);
+                mapping.Put(transform, result);
                 return result;
             }
 
@@ -509,6 +548,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Figure out the dispatcher setting of a module.
         /// </summary>
+        /// <param name="module">TBD</param>
+        /// <returns>TBD</returns>
         internal static ActorAttributes.Dispatcher GetDispatcher(IModule module)
         {
             CopiedModule copied;
@@ -520,6 +561,11 @@ namespace Akka.Streams.Implementation.Fusing
             return module.Attributes.GetAttribute<ActorAttributes.Dispatcher>(null);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="indent">TBD</param>
+        /// <param name="msg">TBD</param>
         internal static void Log(int indent, string msg) => Console.WriteLine("{0}{1}", string.Empty.PadLeft(indent*2), msg);
     }
 
@@ -583,8 +629,18 @@ namespace Akka.Streams.Implementation.Fusing
         /// </summary>
         private readonly LinkedList<LinkedList<CopiedModule>> _materializedSources = new LinkedList<LinkedList<CopiedModule>>();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public void EnterMaterializationContext() => _materializedSources.AddFirst(new LinkedList<CopiedModule>());
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown when the stack of materialized value sources is empty.
+        /// </exception>
+        /// <returns>TBD</returns>
         public IImmutableList<CopiedModule> ExitMaterializationContext()
         {
             if (_materializedSources.Count == 0) throw new ArgumentException("ExitMaterializationContext with empty stack");
@@ -593,22 +649,43 @@ namespace Akka.Streams.Implementation.Fusing
             return x.ToImmutableList();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="module">TBD</param>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown when the stack of materialized value sources is empty.
+        /// </exception>
         public void PushMaterializationSource(CopiedModule module)
         {
             if (_materializedSources.Count == 0) throw new ArgumentException("PushMaterializationSource without context");
             _materializedSources.First.Value.AddFirst(module);
         }
 
-        public Streams.Fusing.StructuralInfo ToInfo()
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
+        public StructuralInfoModule ToInfo<TShape>(TShape shape, IList<Tuple<IModule, IMaterializedValueNode>> materializedValues ,Attributes attributes = null) where TShape : Shape
         {
-            return new Streams.Fusing.StructuralInfo(
-                ImmutableDictionary.CreateRange(Upstreams),
-                ImmutableDictionary.CreateRange(Downstreams),
-                ImmutableDictionary.CreateRange(InOwners),
-                ImmutableDictionary.CreateRange(OutOwners),
-                ImmutableHashSet.CreateRange(Modules));
+            attributes = attributes ?? Attributes.None;
+
+            return new StructuralInfoModule(Modules.ToImmutableArray(), shape, 
+                Downstreams.ToImmutableDictionary(),
+                Upstreams.ToImmutableDictionary(), 
+                InOwners.ToImmutableDictionary(), 
+                OutOwners.ToImmutableDictionary(),
+                materializedValues.ToImmutableList(), 
+                materializedValues.First().Item2, 
+                attributes);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="oldModule">TBD</param>
+        /// <param name="newModule">TBD</param>
+        /// <param name="localGroup">TBD</param>
         public void Replace(IModule oldModule, IModule newModule, ISet<IModule> localGroup)
         {
             Modules.Remove(oldModule);
@@ -647,6 +724,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// Register the outlets of the given Shape as sources for internal connections within imported 
         /// (and not dissolved) GraphModules. See also the comment in addModule where this is partially undone.
         /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <param name="indent">TBD</param>
         public void RegisterInternals(Shape shape, int indent)
         {
             if (Fusing.IsDebug) Fusing.Log(indent, $"registerInternals({string.Join(",", shape.Outlets.Select(Hash))}");
@@ -663,8 +742,7 @@ namespace Akka.Streams.Implementation.Fusing
             while (enumerator.MoveNext())
             {
                 var outport = enumerator.Current;
-                InPort inport;
-                if (Downstreams.TryGetValue(outport, out inport))
+                if (Downstreams.TryGetValue(outport, out var inport))
                 {
                     Downstreams.Remove(outport);
                     Upstreams.Remove(inport);
@@ -675,6 +753,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Create and return a new grouping (i.e. an AsyncBoundary-delimited context)
         /// </summary>
+        /// <param name="indent">TBD</param>
+        /// <returns>TBD</returns>
         public ISet<IModule> CreateGroup(int indent)
         {
             var group = new HashSet<IModule>();
@@ -686,6 +766,12 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Add a module to the given group, performing normalization (i.e. giving it a unique port identity).
         /// </summary>
+        /// <param name="module">TBD</param>
+        /// <param name="group">TBD</param>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <param name="indent">TBD</param>
+        /// <param name="oldShape">TBD</param>
+        /// <returns>TBD</returns>
         public Atomic AddModule(IModule module, ISet<IModule> group, Attributes inheritedAttributes, int indent, Shape oldShape = null)
         {
             var copy = oldShape == null
@@ -747,6 +833,10 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Record a wiring between two copied ports, using (and reducing) the port mappings.
         /// </summary>
+        /// <param name="outPort">TBD</param>
+        /// <param name="inPort">TBD</param>
+        /// <param name="indent">TBD</param>
+        /// <exception cref="ArgumentException">TBD</exception>
         public void Wire(OutPort outPort, InPort inPort, int indent)
         {
             if (Fusing.IsDebug) Fusing.Log(indent, $"wiring {outPort} ({Hash(outPort)}) -> {inPort} ({Hash(inPort)})");
@@ -761,6 +851,10 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Replace all mappings for a given shape with its new (copied) form.
         /// </summary>
+        /// <param name="oldShape">TBD</param>
+        /// <param name="newShape">TBD</param>
+        /// <param name="indent">TBD</param>
+        /// <exception cref="ArgumentException">TBD</exception>
         public void Rewire(Shape oldShape, Shape newShape, int indent)
         {
             if (Fusing.IsDebug) Fusing.Log(indent, $"rewiring {PrintShape(oldShape)} -> {PrintShape(newShape)}");
@@ -791,11 +885,15 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Transform original into copied Inlets.
         /// </summary>
+        /// <param name="old">TBD</param>
+        /// <returns>TBD</returns>
         public ImmutableArray<Inlet> NewInlets(IEnumerable<Inlet> old) => old.Select(i => (Inlet)NewInputs[i].First.Value).ToImmutableArray();
 
         /// <summary>
         /// Transform original into copied Outlets.
         /// </summary>
+        /// <param name="old">TBD</param>
+        /// <returns>TBD</returns>
         public ImmutableArray<Outlet> NewOutlets(IEnumerable<Outlet> old) => old.Select(o => (Outlet)NewOutputs[o].First.Value).ToImmutableArray();
 
         private bool IsCopiedModuleWithGraphStageAndMaterializedValue(IModule module)
@@ -805,14 +903,13 @@ namespace Akka.Streams.Implementation.Fusing
             Type stageType;
             return copiedModule != null
                 && (graphStageModule = copiedModule.CopyOf as GraphStageModule) != null
-                && (stageType = graphStageModule.Stage.GetType()).IsGenericType
+                && (stageType = graphStageModule.Stage.GetType()).GetTypeInfo().IsGenericType
                 && stageType.GetGenericTypeDefinition() == typeof(MaterializedValueSource<>);
         }
 
         private void AddMapping<T>(T orig, T mapd, IDictionary<T, LinkedList<T>> map)
         {
-            LinkedList<T> values;
-            if (map.TryGetValue(orig, out values))
+            if (map.TryGetValue(orig, out var values))
                 values.AddLast(mapd);
             else
                 map.Add(orig, new LinkedList<T>(new[] { mapd }));
@@ -820,8 +917,7 @@ namespace Akka.Streams.Implementation.Fusing
 
         private Option<T> RemoveMapping<T>(T orig, IDictionary<T, LinkedList<T>> map)
         {
-            LinkedList<T> values;
-            if (map.TryGetValue(orig, out values))
+            if (map.TryGetValue(orig, out var values))
             {
                 if (values.Count == 0)
                     map.Remove(orig);
@@ -836,15 +932,18 @@ namespace Akka.Streams.Implementation.Fusing
         }
 
         /// <summary>
-        /// See through copied modules to the “real” module.
+        /// See through copied modules to the "real" module.
         /// </summary>
         private static IModule GetRealModule(IModule module)
         {
-            return module is CopiedModule
-                ? GetRealModule(((CopiedModule)module).CopyOf)
+            return module is CopiedModule copiedModule
+                ? GetRealModule(copiedModule.CopyOf)
                 : module;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal void Dump()
         {
             Console.WriteLine("StructuralInfo:");
@@ -854,6 +953,11 @@ namespace Akka.Streams.Implementation.Fusing
             NewInputs.ForEach(kvp => Console.WriteLine($"    {kvp.Key} ({Hash(kvp.Key)}) -> {string.Join(",", kvp.Value.Select(Hash))}"));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="obj">TBD</param>
+        /// <returns>TBD</returns>
         internal string Hash(object obj) => obj.GetHashCode().ToString("x");
 
         private string PrintShape(Shape shape) =>

@@ -7,17 +7,31 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Akka.MultiNodeTestRunner.Shared;
+using Akka.Remote.TestKit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace Akka.MultiNodeTestRunner
 {
-    internal class Discovery : MarshalByRefObject, IMessageSink, IDisposable
+#if CORECLR
+    public class Discovery : IMessageSink, IDisposable
+#else
+    public class Discovery : MarshalByRefObject, IMessageSink, IDisposable
+#endif
     {
         public Dictionary<string, List<NodeTest>> Tests { get; set; }
-
+        public List<ErrorMessage> Errors { get; } = new List<ErrorMessage>();
+        public bool WasSuccessful => Errors.Count == 0;
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Discovery"/> class.
+        /// </summary>
         public Discovery()
         {
             Tests = new Dictionary<string, List<NodeTest>>();
@@ -25,51 +39,110 @@ namespace Akka.MultiNodeTestRunner
         }
 
         public ManualResetEvent Finished { get; private set; }
-
         public IMessageSink NextSink { get; private set; }
 
-        public bool OnMessage(IMessageSinkMessage message)
+        public virtual bool OnMessage(IMessageSinkMessage message)
         {
-            var testCaseDiscoveryMessage = message as ITestCaseDiscoveryMessage;
-            if (testCaseDiscoveryMessage != null)
+            switch (message)
             {
-                //TODO: Improve this
-                if (Regex.IsMatch(testCaseDiscoveryMessage.TestClass.Class.Name, @"\d+$"))
-                {
-                    var details = GetTestDetails(testCaseDiscoveryMessage);
-                    List<NodeTest> tests;
-                    if (Tests.TryGetValue(details.TestName, out tests))
-                    {
-                        tests.Add(details);
-                    }
-                    else
-                    {
-                        tests = new List<NodeTest>(new[] {details});
-                    }
-                    Tests[details.TestName] = tests;
-                }
-            }
+                case ITestCaseDiscoveryMessage testCaseDiscoveryMessage:
+                    var testClass = testCaseDiscoveryMessage.TestClass.Class;
+                    if (testClass.IsAbstract) return true;
+#if CORECLR
+                    var specType = testCaseDiscoveryMessage.TestAssembly.Assembly.GetType(testClass.Name).ToRuntimeType();
+#else
+                    var testAssembly = Assembly.LoadFrom(testCaseDiscoveryMessage.TestAssembly.Assembly.AssemblyPath);
+                    var specType = testAssembly.GetType(testClass.Name);
+#endif
+                    var roles = RoleNames(specType);
 
-            if (message is IDiscoveryCompleteMessage)
-                Finished.Set();
+                    var details = roles.Select((r, i) => new NodeTest
+                    {
+                        Node = i + 1,
+                        Role = r.Name,
+                        TestName = testClass.Name,
+                        TypeName = testClass.Name,
+                        MethodName = testCaseDiscoveryMessage.TestCase.TestMethod.Method.Name,
+                        SkipReason = testCaseDiscoveryMessage.TestCase.SkipReason,
+                    }).ToList();
+                    if (details.Any())
+                    {
+                        var dictKey = details.First().TestName;
+                        if (Tests.ContainsKey(dictKey))
+                            Tests[dictKey].AddRange(details);
+                        else
+                            Tests.Add(dictKey, details);
+                    }
+                    break;
+                case IDiscoveryCompleteMessage discoveryComplete:
+                    Finished.Set();
+                    break;
+                case ErrorMessage err:
+                    Errors.Add(err);
+                    break;
+            }
 
             return true;
         }
 
-        private NodeTest GetTestDetails(ITestCaseDiscoveryMessage nodeTest)
+        private IEnumerable<RoleName> RoleNames(Type specType)
         {
-            var matches = Regex.Match(nodeTest.TestClass.Class.Name, "(.+)([0-9]+)");
-
-            return new NodeTest
-            {
-                Node = Convert.ToInt32(matches.Groups[2].Value),
-                TestName = matches.Groups[1].Value,
-                TypeName = nodeTest.TestClass.Class.Name,
-                MethodName = nodeTest.TestCase.TestMethod.Method.Name,
-                SkipReason = nodeTest.TestCase.SkipReason
-            };
+            var ctorWithConfig = FindConfigConstructor(specType);
+            var configType = ctorWithConfig.GetParameters().First().ParameterType;
+            var args = ConfigConstructorParamValues(configType);
+            var configInstance = Activator.CreateInstance(configType, args);
+            var roleType = typeof(RoleName);
+            var configProps = configType.GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            var roleProps = configProps.Where(p => p.PropertyType == roleType && p.Name != "Myself").Select(p => (RoleName)p.GetValue(configInstance));
+            var configFields = configType.GetFields(BindingFlags.Instance | BindingFlags.Public);
+            var roleFields = configFields.Where(f => f.FieldType == roleType && f.Name != "Myself").Select(f => (RoleName)f.GetValue(configInstance));
+            var roles = roleProps.Concat(roleFields).Distinct();
+            return roles;
         }
 
+        internal static ConstructorInfo FindConfigConstructor(Type configUser)
+        {
+            var baseConfigType = typeof(MultiNodeConfig);
+            var current = configUser;
+            while (current != null)
+            {
+
+#if CORECLR
+                var ctorWithConfig = current
+                    .GetConstructors(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
+                    .FirstOrDefault(c => null != c.GetParameters().FirstOrDefault(p => p.ParameterType.GetTypeInfo().IsSubclassOf(baseConfigType)));
+            
+                current = current.GetTypeInfo().BaseType;
+#else
+                var ctorWithConfig = current
+                    .GetConstructors(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
+                    .FirstOrDefault(c => null != c.GetParameters().FirstOrDefault(p => p.ParameterType.IsSubclassOf(baseConfigType)));
+
+                current = current.BaseType;
+#endif
+                if (ctorWithConfig != null) return ctorWithConfig;
+            }
+
+            throw new ArgumentException($"[{configUser}] or one of its base classes must specify constructor, which first parameter is a subclass of {baseConfigType}");
+        }
+
+        private object[] ConfigConstructorParamValues(Type configType)
+        {
+            var ctors = configType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            var empty = ctors.FirstOrDefault(c => !c.GetParameters().Any());
+
+#if CORECLR
+            return empty != null
+                ? new object[0]
+                : ctors.First().GetParameters().Select(p => p.ParameterType.GetTypeInfo().IsValueType ? Activator.CreateInstance(p.ParameterType) : null).ToArray();
+#else
+            return empty != null
+                ? new object[0]
+                : ctors.First().GetParameters().Select(p => p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null).ToArray();
+#endif
+        }
+
+        /// <inheritdoc/>
         public void Dispose()
         {
             Finished.Dispose();

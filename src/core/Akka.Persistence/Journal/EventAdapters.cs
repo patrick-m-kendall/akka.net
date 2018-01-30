@@ -9,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Akka.Actor;
 using Akka.Configuration;
 using Akka.Configuration.Hocon;
@@ -41,9 +42,11 @@ namespace Akka.Persistence.Journal
     public interface IWriteEventAdapter
     {
         /// <summary>
-        /// Return the manifest (type hint) that will be provided in the <see cref="FromJournal"/> method.
+        /// Return the manifest (type hint) that will be provided in the <see cref="IReadEventAdapter.FromJournal"/> method.
         /// Use empty string if not needed.
         /// </summary>
+        /// <param name="evt">TBD</param>
+        /// <returns>TBD</returns>
         string Manifest(object evt);
 
         /// <summary>
@@ -86,23 +89,32 @@ namespace Akka.Persistence.Journal
         IEventSequence FromJournal(object evt, string manifest);
     }
 
+    /// <summary>
+    /// No-op model adapter which passes through the incoming events as-is.
+    /// </summary>
     [Serializable]
-    public class IdentityEventAdapter : IEventAdapter
+    public sealed class IdentityEventAdapter : IEventAdapter
     {
-        public static readonly IdentityEventAdapter Instance = new IdentityEventAdapter();
+        /// <summary>
+        /// The singleton instance of <see cref="IdentityEventAdapter"/>.
+        /// </summary>
+        public static IdentityEventAdapter Instance { get; } = new IdentityEventAdapter();
 
         private IdentityEventAdapter() { }
 
+        /// <inheritdoc/>
         public string Manifest(object evt)
         {
             return string.Empty;
         }
 
+        /// <inheritdoc/>
         public object ToJournal(object evt)
         {
             return evt;
         }
 
+        /// <inheritdoc/>
         public IEventSequence FromJournal(object evt, string manifest)
         {
             return EventSequence.Single(evt);
@@ -119,7 +131,6 @@ namespace Akka.Persistence.Journal
             _readEventAdapter = readEventAdapter;
         }
 
-        // no-op write
         public string Manifest(object evt)
         {
             return string.Empty;
@@ -130,7 +141,6 @@ namespace Akka.Persistence.Journal
             return evt;
         }
 
-        // pass-through read
         public IEventSequence FromJournal(object evt, string manifest)
         {
             return _readEventAdapter.FromJournal(evt, manifest);
@@ -147,7 +157,6 @@ namespace Akka.Persistence.Journal
             _writeEventAdapter = writeEventAdapter;
         }
 
-        // pass-through write
         public string Manifest(object evt)
         {
             return _writeEventAdapter.Manifest(evt);
@@ -158,64 +167,109 @@ namespace Akka.Persistence.Journal
             return _writeEventAdapter.ToJournal(evt);
         }
 
-        // no-op read
         public IEventSequence FromJournal(object evt, string manifest)
         {
             return EventSequence.Single(evt);
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     [Serializable]
     public sealed class CombinedReadEventAdapter : IEventAdapter
     {
         private static readonly Exception OnlyReadSideException = new IllegalStateException(
                 "CombinedReadEventAdapter must not be used when writing (creating manifests) events!");
 
-        private readonly IEventAdapter[] _adapters;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public IEnumerable<IEventAdapter> Adapters { get; }
 
-        public IEnumerable<IEventAdapter> Adapters { get { return _adapters; } }
-
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="adapters">TBD</param>
         public CombinedReadEventAdapter(IEnumerable<IEventAdapter> adapters)
         {
-            _adapters = adapters.ToArray();
+            Adapters = adapters.ToArray();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="evt">TBD</param>
+        /// <exception cref="IllegalStateException">TBD</exception>
+        /// <returns>TBD</returns>
         public string Manifest(object evt)
         {
             throw OnlyReadSideException;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="evt">TBD</param>
+        /// <exception cref="IllegalStateException">TBD</exception>
+        /// <returns>TBD</returns>
         public object ToJournal(object evt)
         {
             throw OnlyReadSideException;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="evt">TBD</param>
+        /// <param name="manifest">TBD</param>
+        /// <returns>TBD</returns>
         public IEventSequence FromJournal(object evt, string manifest)
         {
-            return EventSequence.Create(_adapters.SelectMany(adapter => adapter.FromJournal(evt, manifest).Events));
+            return EventSequence.Create(Adapters.SelectMany(adapter => adapter.FromJournal(evt, manifest).Events));
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal class IdentityEventAdapters : EventAdapters
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly EventAdapters Instance = new IdentityEventAdapters();
 
         private IdentityEventAdapters() : base(null, null, null)
         {
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="type">TBD</param>
+        /// <returns>TBD</returns>
         public override IEventAdapter Get(Type type)
         {
             return IdentityEventAdapter.Instance;
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public class EventAdapters
     {
         private readonly ConcurrentDictionary<Type, IEventAdapter> _map;
         private readonly IEnumerable<KeyValuePair<Type, IEventAdapter>> _bindings;
         private readonly ILoggingAdapter _log;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EventAdapters"/> class.
+        /// </summary>
+        /// <param name="system">TBD</param>
+        /// <param name="config">TBD</param>
+        /// <returns>TBD</returns>
         public static EventAdapters Create(ExtendedActorSystem system, Config config)
         {
             var adapters = ConfigToMap(config, "event-adapters");
@@ -248,7 +302,7 @@ namespace Akka.Persistence.Journal
                 var type = Type.GetType(kv.Key);
                 var adapter = kv.Value.Length == 1
                     ? handlers[kv.Value[0]]
-                    : new CombinedReadEventAdapter(kv.Value.Select(h => handlers[h]));
+                    : new NoopWriteEventAdapter(new CombinedReadEventAdapter(kv.Value.Select(h => handlers[h])));
                 return new KeyValuePair<Type, IEventAdapter>(type, adapter);
             }).ToList());
 
@@ -286,6 +340,12 @@ namespace Akka.Persistence.Journal
             return -1;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EventAdapters"/> class.
+        /// </summary>
+        /// <param name="map">TBD</param>
+        /// <param name="bindings">TBD</param>
+        /// <param name="log">TBD</param>
         protected EventAdapters(ConcurrentDictionary<Type, IEventAdapter> map, IEnumerable<KeyValuePair<Type, IEventAdapter>> bindings, ILoggingAdapter log)
         {
             _map = map;
@@ -293,15 +353,24 @@ namespace Akka.Persistence.Journal
             _log = log;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <returns>TBD</returns>
         public IEventAdapter Get<T>()
         {
             return Get(typeof(T));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="type">TBD</param>
+        /// <returns>TBD</returns>
         public virtual IEventAdapter Get(Type type)
         {
-            IEventAdapter adapter;
-            if (_map.TryGetValue(type, out adapter))
+            if (_map.TryGetValue(type, out IEventAdapter adapter))
                 return adapter;
 
             // bindings are ordered from most specific to least specific

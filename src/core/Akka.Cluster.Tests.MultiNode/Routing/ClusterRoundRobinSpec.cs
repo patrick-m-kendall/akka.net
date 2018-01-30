@@ -115,12 +115,7 @@ namespace Akka.Cluster.Tests.MultiNode.Routing
         }
     }
 
-    public class ClusterRoundRobinMultiNode1 : ClusterRoundRobinSpec { }
-    public class ClusterRoundRobinMultiNode2 : ClusterRoundRobinSpec { }
-    public class ClusterRoundRobinMultiNode3 : ClusterRoundRobinSpec { }
-    public class ClusterRoundRobinMultiNode4 : ClusterRoundRobinSpec { }
-
-    public abstract class ClusterRoundRobinSpec : MultiNodeClusterSpec
+    public class ClusterRoundRobinSpec : MultiNodeClusterSpec
     {
         private readonly ClusterRoundRobinSpecConfig _config;
         private readonly Lazy<IActorRef> router1;
@@ -129,12 +124,12 @@ namespace Akka.Cluster.Tests.MultiNode.Routing
         private readonly Lazy<IActorRef> router4;
         private readonly Lazy<IActorRef> router5;
 
-        protected ClusterRoundRobinSpec() : this(new ClusterRoundRobinSpecConfig())
+        public ClusterRoundRobinSpec() : this(new ClusterRoundRobinSpecConfig())
         {
         }
 
         protected ClusterRoundRobinSpec(ClusterRoundRobinSpecConfig config)
-            : base(config)
+            : base(config, typeof(ClusterRoundRobinSpec))
         {
             _config = config;
 

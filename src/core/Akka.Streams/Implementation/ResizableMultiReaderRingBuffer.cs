@@ -9,32 +9,58 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using Akka.Annotations;
 using Akka.Streams.Util;
 
 namespace Akka.Streams.Implementation
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     [Serializable]
     public class NothingToReadException : Exception
     {
+        /// <summary>
+        /// The singleton instance of this exception
+        /// </summary>
         public static readonly NothingToReadException Instance = new NothingToReadException();
 
         private NothingToReadException()
         {
         }
 
+#if SERIALIZATION
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NothingToReadException"/> class.
+        /// </summary>
+        /// <param name="info">The <see cref="SerializationInfo" /> that holds the serialized object data about the exception being thrown.</param>
+        /// <param name="context">The <see cref="StreamingContext" /> that contains contextual information about the source or destination.</param>
         protected NothingToReadException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#endif
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public interface ICursors
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         IEnumerable<ICursor> Cursors { get; }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public interface ICursor
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         int Cursor { get; set; }
     }
 
@@ -44,6 +70,8 @@ namespace Akka.Streams.Implementation
     /// Contrary to many other ring buffer implementations this one does not automatically overwrite the oldest
     /// elements, rather, if full, the buffer tries to grow and rejects further writes if max capacity is reached.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public class ResizableMultiReaderRingBuffer<T>
     {
         private readonly int _maxSizeBit;
@@ -66,6 +94,13 @@ namespace Akka.Streams.Implementation
         // bit mask for converting a cursor into an array index
         private int Mask => int.MaxValue >> (31 - LengthBit);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="initialSize">TBD</param>
+        /// <param name="maxSize">TBD</param>
+        /// <param name="cursors">TBD</param>
+        /// <exception cref="ArgumentException">TBD</exception>
         public ResizableMultiReaderRingBuffer(int initialSize, int maxSize, ICursors cursors)
         {
             Cursors = cursors;
@@ -80,8 +115,14 @@ namespace Akka.Streams.Implementation
             _maxSizeBit = maxSize.NumberOfTrailingZeros();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected readonly ICursors Cursors;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected object[] UnderlyingArray => _array;
 
         /// <summary>
@@ -89,14 +130,20 @@ namespace Akka.Streams.Implementation
         /// </summary>
         public int Length => _writeIndex - _readIndex;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public bool IsEmpty => Length == 0;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public bool NonEmpty => !IsEmpty;
 
         /// <summary>
         /// The number of elements the buffer can still take without having to be resized.
         /// </summary>
-        public int ImmediatellyAvailable => _array.Length - Length;
+        public int ImmediatelyAvailable => _array.Length - Length;
 
         /// <summary>
         /// The maximum number of elements the buffer can still take.
@@ -106,17 +153,22 @@ namespace Akka.Streams.Implementation
         /// <summary>
         /// Returns the number of elements that the buffer currently contains for the given cursor.
         /// </summary>
+        /// <param name="cursor">TBD</param>
+        /// <returns>TBD</returns>
         public int Count(ICursor cursor) => _writeIndex - cursor.Cursor;
 
         /// <summary>
         /// Initializes the given Cursor to the oldest buffer entry that is still available.
         /// </summary>
+        /// <param name="cursor">TBD</param>
         public void InitCursor(ICursor cursor) => cursor.Cursor = _readIndex;
 
         /// <summary>
         /// Tries to write the given value into the buffer thereby potentially growing the backing array.
         /// Returns true if the write was successful and false if the buffer is full and cannot grow anymore.
         /// </summary> 
+        /// <param name="value">TBD</param>
+        /// <returns>TBD</returns>
         public bool Write(T value)
         {
             if (Length < _array.Length)
@@ -158,6 +210,9 @@ namespace Akka.Streams.Implementation
         /// If there are no more data to be read (i.e. the cursor is already
         /// at writeIx) the method throws <see cref="NothingToReadException"/>!
         /// </summary>
+        /// <param name="cursor">TBD</param>
+        /// <exception cref="NothingToReadException">TBD</exception>
+        /// <returns>TBD</returns>
         public T Read(ICursor cursor)
         {
             var c = cursor.Cursor;
@@ -173,6 +228,10 @@ namespace Akka.Streams.Implementation
             throw NothingToReadException.Instance;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="cursor">TBD</param>
         public void OnCursorRemoved(ICursor cursor)
         {
             if (cursor.Cursor == _readIndex) // if this cursor is the last one it must be at readIx
@@ -197,6 +256,10 @@ namespace Akka.Streams.Implementation
             return result;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => $"ResizableMultiReaderRingBuffer(size={Length}, writeIx={_writeIndex}, readIx={_readIndex}, cursors={Cursors.Cursors.Count()})";
     }
 }

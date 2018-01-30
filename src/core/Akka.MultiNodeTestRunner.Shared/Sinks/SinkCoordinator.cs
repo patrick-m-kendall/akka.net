@@ -157,21 +157,21 @@ namespace Akka.MultiNodeTestRunner.Shared.Sinks
             });
             Receive<NodeCompletedSpecWithSuccess>(s => PublishToChildren(s));
             Receive<IList<NodeTest>>(tests => BeginSpec(tests));
-            Receive<EndSpec>(spec => EndSpec());
+            Receive<EndSpec>(spec => EndSpec(spec.ClassName, spec.MethodName));
             Receive<RunnerMessage>(runner => PublishToChildren(runner));
         }
 
         private void PublishToChildren(NodeCompletedSpecWithSuccess message)
         {
             foreach(var sink in Sinks)
-                sink.Success(message.NodeIndex, message.Message);
+                sink.Success(message.NodeIndex, message.NodeRole, message.Message);
         }
 
 
-        private void EndSpec()
+        private void EndSpec(string testName, string methodName)
         {
             foreach (var sink in Sinks)
-                sink.EndTest();
+                sink.EndTest(testName, methodName);
         }
 
         private void BeginSpec(IList<NodeTest> tests)
@@ -185,7 +185,13 @@ namespace Akka.MultiNodeTestRunner.Shared.Sinks
         private void PublishToChildren(RunnerMessage message)
         {
             foreach (var sink in Sinks)
+            {
+#if CORECLR
+                sink.LogRunnerMessage(message.Message, Assembly.GetEntryAssembly().GetName().Name, LogLevel.InfoLevel);
+#else
                 sink.LogRunnerMessage(message.Message, Assembly.GetExecutingAssembly().GetName().Name, LogLevel.InfoLevel);
+#endif
+            }
         }
 
         /// <summary>

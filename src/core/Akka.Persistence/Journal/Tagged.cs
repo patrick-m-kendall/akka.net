@@ -21,19 +21,36 @@ namespace Akka.Persistence.Journal
     /// </summary>
     public struct Tagged
     {
-        public readonly object Payload;
-        public readonly IImmutableSet<string> Tags;
-
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="payload">TBD</param>
+        /// <param name="tags">TBD</param>
         public Tagged(object payload, IEnumerable<string> tags)
         {
             Payload = payload;
             Tags = tags.ToImmutableHashSet();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="payload">TBD</param>
+        /// <param name="tags">TBD</param>
         public Tagged(object payload, IImmutableSet<string> tags)
         {
             Payload = payload;
             Tags = tags;
         }
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public object Payload { get; }
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public IImmutableSet<string> Tags { get; }
     }
 }

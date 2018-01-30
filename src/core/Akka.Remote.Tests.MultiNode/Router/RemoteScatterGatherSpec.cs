@@ -48,12 +48,7 @@ namespace Akka.Remote.Tests.MultiNode.Router
         }
     }
 
-    public class RemoteScatterGatherMultiNetNode1 : RemoteScatterGatherSpec { }
-    public class RemoteScatterGatherMultiNetNode2 : RemoteScatterGatherSpec { }
-    public class RemoteScatterGatherMultiNetNode3 : RemoteScatterGatherSpec { }
-    public class RemoteScatterGatherMultiNetNode4 : RemoteScatterGatherSpec { }
-
-    public abstract class RemoteScatterGatherSpec : MultiNodeSpec
+    public class RemoteScatterGatherSpec : MultiNodeSpec
     {
         private class SomeActor : UntypedActor
         {
@@ -66,11 +61,11 @@ namespace Akka.Remote.Tests.MultiNode.Router
 
         private readonly RemoteScatterGatherMultiNetSpec _config;
 
-        protected RemoteScatterGatherSpec() : this(new RemoteScatterGatherMultiNetSpec())
+        public RemoteScatterGatherSpec() : this(new RemoteScatterGatherMultiNetSpec())
         {
         }
 
-        protected RemoteScatterGatherSpec(RemoteScatterGatherMultiNetSpec config) : base(config)
+        protected RemoteScatterGatherSpec(RemoteScatterGatherMultiNetSpec config) : base(config, typeof(RemoteScatterGatherSpec))
         {
             _config = config;
         }

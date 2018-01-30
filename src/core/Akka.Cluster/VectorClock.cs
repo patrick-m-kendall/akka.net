@@ -11,51 +11,94 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Akka.Util.Internal;
-using Node = System.String;
 
 namespace Akka.Cluster
 {
     /// <summary>
+    /// <para>
     /// Representation of a Vector-based clock (counting clock), inspired by Lamport logical clocks.
-    /// 
-    /// {{{
+    /// </para>
+    /// <para>
     /// Reference:
-    ///     1) Leslie Lamport (1978). "Time, clocks, and the ordering of events in a distributed system". Communications of the ACM 21 (7): 558-565.
-    ///    2) Friedemann Mattern (1988). "Virtual Time and Global States of Distributed Systems". Workshop on Parallel and Distributed Algorithms: pp. 215-226
-    /// }}}
-    /// 
+    /// <ol>
+    /// <li>Leslie Lamport (1978). "Time, clocks, and the ordering of events in a distributed system". Communications of the ACM 21 (7): 558-565.</li>
+    /// <li>Friedemann Mattern (1988). "Virtual Time and Global States of Distributed Systems". Workshop on Parallel and Distributed Algorithms: pp. 215-226</li>
+    /// </ol>
+    /// </para>
+    /// <para>
     /// Based on code from the 'vlock' VectorClock library by Coda Hale.
+    /// </para>
     /// </summary>
     public sealed class VectorClock
     {
-        /**
-         * Hash representation of a versioned node name.
-         */
-        //TODO: Node is alias for string in akka. Alternatives to below implementation?
-        //Do we really need to hash? Why not just use string and get rid of Node class		
+        private bool Equals(VectorClock other)
+        {
+            return IsSameAs(other);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            return obj is VectorClock && Equals((VectorClock) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = 23;
+                foreach (var c in _versions)
+                {
+                    hashCode = hashCode * 31 + c.Key.GetHashCode();
+                    hashCode = hashCode * 31 + c.Value.GetHashCode();
+                }
+                return hashCode;
+            }
+        }
+
         /// <summary>
-        /// TBD
+        /// Hash representation of a versioned node name.
         /// </summary>
         public class Node : IComparable<Node>
         {
-            readonly string _value;
+            private readonly string _value;
+            private readonly int _computedHashValue;
 #if DEBUG
             string ActualValue { get; set; }
 #endif
             /// <summary>
-            /// TBD
+            /// Creates a new vectorclock node.
             /// </summary>
-            /// <param name="value">TBD</param>
+            /// <param name="value">The hash value of the string.</param>
             public Node(string value)
             {
                 _value = value;
+                _computedHashValue = 23;
+                /*
+                 * IMPORTANT: in a distributed system, relying on the underlying object.GetHashCode function
+                 * may return inconsistent values across servers. Therefore we want to compute our hashcode from 
+                 * the sum of the parts and use that instead, as that hashcode value is determined solely by the
+                 * content of the string and doesn't include any other environmental factors.
+                 * 
+                 * NOTE: Aaronontheweb, 4/7/2017 ideally this information should be computed before we create the VectorClock
+                 * at the same time as the hash is taken, but I decided to implement it here so we wouldn't have to change the
+                 * constructor signature, which would affect wire format compatibility.
+                 */
+                unchecked
+                {
+                    foreach (var c in value)
+                    {
+                        _computedHashValue *= _computedHashValue * 31 + c; // using the byte value of each char
+                    }
+                }
             }
 
             /// <summary>
-            /// TBD
+            /// Creates a new VectorClock node
             /// </summary>
-            /// <param name="name">TBD</param>
-            /// <returns>TBD</returns>
+            /// <param name="name">The name of the node.</param>
+            /// <returns>A new node representation.</returns>
             public static Node Create(string name)
             {
 #if DEBUG
@@ -68,10 +111,10 @@ namespace Akka.Cluster
             }
 
             /// <summary>
-            /// TBD
+            /// Creates a node from its MD5 hash representation.
             /// </summary>
-            /// <param name="hash">TBD</param>
-            /// <returns>TBD</returns>
+            /// <param name="hash">The hash input value.</param>
+            /// <returns>A Node.</returns>
             public static Node FromHash(string hash)
             {
                 return new Node(hash);
@@ -83,28 +126,24 @@ namespace Akka.Cluster
                 var inputBytes = Encoding.UTF8.GetBytes(name);
                 var hash = md5.ComputeHash(inputBytes);
 
+
                 var sb = new StringBuilder();
+
                 foreach (var t in hash)
                 {
                     sb.Append(t.ToString("X2"));
                 }
+
                 return new Node(sb.ToString());
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override int GetHashCode()
             {
-                return _value.GetHashCode();
+                return _computedHashValue;
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="obj">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override bool Equals(object obj)
             {
                 var that = obj as Node;
@@ -112,20 +151,13 @@ namespace Akka.Cluster
                 return _value.Equals(that._value);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return _value;
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="other">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public int CompareTo(Node other)
             {
                 return Comparer<String>.Default.Compare(_value, other._value);
@@ -133,7 +165,7 @@ namespace Akka.Cluster
         }
 
         /// <summary>
-        /// TBD
+        /// Timestamp used by the <see cref="VectorClock"/>.
         /// </summary>
         internal class Timestamp
         {
@@ -148,24 +180,24 @@ namespace Akka.Cluster
         }
 
         /// <summary>
-        /// TBD
+        /// Indicates the age of one <see cref="VectorClock"/> relative to another.
         /// </summary>
         public enum Ordering
         {
             /// <summary>
-            /// TBD
+            /// Vectorclock is younger.
             /// </summary>
             After,
             /// <summary>
-            /// TBD
+            /// Vectorclock is older.
             /// </summary>
             Before,
             /// <summary>
-            /// TBD
+            /// Vectorclocks are same age.
             /// </summary>
             Same,
             /// <summary>
-            /// TBD
+            /// Vectorclocks both contain concurrent mutations and must be merged.
             /// </summary>
             Concurrent,
             //TODO: Ideally this would be private, change to override of compare?
@@ -177,30 +209,30 @@ namespace Akka.Cluster
 
         readonly ImmutableSortedDictionary<Node, long> _versions;
         /// <summary>
-        /// TBD
+        /// The list of vector clock values for each node.
         /// </summary>
         public ImmutableSortedDictionary<Node, long> Versions { get { return _versions; } }
 
         /// <summary>
-        /// TBD
+        /// Creates a new <see cref="VectorClock"/>
         /// </summary>
-        /// <returns>TBD</returns>
+        /// <returns>A new <see cref="VectorClock"/>.</returns>
         public static VectorClock Create()
         {
             return Create(ImmutableSortedDictionary.Create<Node, long>());
         }
 
         /// <summary>
-        /// TBD
+        /// Creates a <see cref="VectorClock"/> from some initial seed values.
         /// </summary>
-        /// <param name="seedValues">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="seedValues">Preliminary values that will be used by the vectorclock.</param>
+        /// <returns>A new <see cref="VectorClock"/>.</returns>
         public static VectorClock Create(ImmutableSortedDictionary<Node, long> seedValues)
         {
             return new VectorClock(seedValues);
         }
 
-        VectorClock(ImmutableSortedDictionary<Node, long> versions)
+        private VectorClock(ImmutableSortedDictionary<Node, long> versions)
         {
             _versions = versions;
         }
@@ -208,8 +240,8 @@ namespace Akka.Cluster
         /// <summary>
         /// Increment the version for the node passed as argument. Returns a new VectorClock.
         /// </summary>
-        /// <param name="node">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="node">Increment the vector clock value for a particular node.</param>
+        /// <returns>An updated <see cref="VectorClock"/> instance.</returns>
         public VectorClock Increment(Node node)
         {
             var currentTimestamp = _versions.GetOrElse(node, Timestamp.Zero);
@@ -219,8 +251,8 @@ namespace Akka.Cluster
         /// <summary>
         /// Returns true if <code>this</code> and <code>that</code> are concurrent else false.
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The other <see cref="VectorClock"/> to check.</param>
+        /// <returns><c>true</c> if both vector clocks contain concurrent modifications that need to be merged.</returns>
         public bool IsConcurrentWith(VectorClock that)
         {
             return CompareOnlyTo(that, Ordering.Concurrent) == Ordering.Concurrent;
@@ -229,8 +261,8 @@ namespace Akka.Cluster
         /// <summary>
         /// Returns true if <code>this</code> is before <code>that</code> else false.
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The other <see cref="VectorClock"/> to check.</param>
+        /// <returns><c>true</c> if this vectorclock comes before the one we're comparing.</returns>
         public bool IsBefore(VectorClock that)
         {
             return CompareOnlyTo(that, Ordering.Before) == Ordering.Before;
@@ -239,8 +271,8 @@ namespace Akka.Cluster
         /// <summary>
         /// Returns true if <code>this</code> is after <code>that</code> else false.
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The other <see cref="VectorClock"/> to check.</param>
+        /// <returns><c>true</c> if this vectorclock comes after the one we're comparing.</returns>
         public bool IsAfter(VectorClock that)
         {
             return CompareOnlyTo(that, Ordering.After) == Ordering.After;
@@ -249,41 +281,41 @@ namespace Akka.Cluster
         /// <summary>
         /// Returns true if this VectorClock has the same history as the 'that' VectorClock else false.
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The other <see cref="VectorClock"/> to check.</param>
+        /// <returns><c>true</c> if this vectorclock is the same as the one we're comparing.</returns>
         public bool IsSameAs(VectorClock that)
         {
             return CompareOnlyTo(that, Ordering.Same) == Ordering.Same;
         }
 
         /// <summary>
-        /// TBD
+        /// Compares two specified vector clocks to see if the first one is greater than the other one.
         /// </summary>
-        /// <param name="left">TBD</param>
-        /// <param name="right">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="left">The first vector clock used for comparison</param>
+        /// <param name="right">The second vector clock used for comparison</param>
+        /// <returns><c>true</c> if the first vector clock is greater than the other one; otherwise <c>false</c></returns>
         public static bool operator >(VectorClock left, VectorClock right)
         {
             return left.IsAfter(right);
         }
 
         /// <summary>
-        /// TBD
+        /// Compares two specified vector clocks to see if the first one is less than the other one.
         /// </summary>
-        /// <param name="left">TBD</param>
-        /// <param name="right">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="left">The first vector clock used for comparison</param>
+        /// <param name="right">The second vector clock used for comparison</param>
+        /// <returns><c>true</c> if the first vector clock is less than the other one; otherwise <c>false</c></returns>
         public static bool operator <(VectorClock left, VectorClock right)
         {
             return left.IsBefore(right);
         }
 
         /// <summary>
-        /// TBD
+        /// Compares two specified vector clocks for equality.
         /// </summary>
-        /// <param name="left">TBD</param>
-        /// <param name="right">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="left">The first vector clock used for comparison</param>
+        /// <param name="right">The second vector clock used for comparison</param>
+        /// <returns><c>true</c> if both vector clocks are equal; otherwise <c>false</c></returns>
         public static bool operator ==(VectorClock left, VectorClock right)
         {
             if (ReferenceEquals(left, null))
@@ -293,11 +325,11 @@ namespace Akka.Cluster
         }
 
         /// <summary>
-        /// TBD
+        /// Compares two specified vector clocks for inequality.
         /// </summary>
-        /// <param name="left">TBD</param>
-        /// <param name="right">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="left">The first vector clock used for comparison</param>
+        /// <param name="right">The second vector clock used for comparison</param>
+        /// <returns><c>true</c> if both vector clocks are not equal; otherwise <c>false</c></returns>
         public static bool operator !=(VectorClock left, VectorClock right)
         {
             if (ReferenceEquals(left, null))
@@ -306,28 +338,33 @@ namespace Akka.Cluster
             return left.IsConcurrentWith(right);
         }
 
-        private readonly static KeyValuePair<Node, long> CmpEndMarker = new KeyValuePair<Node, long>(Node.Create("endmarker"), long.MinValue);
+        private static readonly KeyValuePair<Node, long> CmpEndMarker = new KeyValuePair<Node, long>(Node.Create("endmarker"), long.MinValue);
 
-        /**
-         * Vector clock comparison according to the semantics described by compareTo, with the ability to bail
-         * out early if the we can't reach the Ordering that we are looking for.
-         *
-         * The ordering always starts with Same and can then go to Same, Before or After
-         * If we're on After we can only go to After or Concurrent
-         * If we're on Before we can only go to Before or Concurrent
-         * If we go to Concurrent we exit the loop immediately
-         *
-         * If you send in the ordering FullOrder, you will get a full comparison.
-         */
         /// <summary>
-        /// TBD
+        /// <para>
+        /// Vector clock comparison according to the semantics described by compareTo,
+        /// with the ability to bail out early if the we can't reach the <see cref="Ordering"/>
+        /// that we are looking for.
+        /// </para>
+        /// <para>
+        /// The ordering always starts with <see cref="Ordering.Same"/> and can then go to
+        /// <see cref="Ordering.Same"/>, <see cref="Ordering.Before"/> or <see cref="Ordering.After"/>.
+        /// </para>
+        /// <para>
+        /// <ul>
+        /// <li>If we're on <see cref="Ordering.After"/>, then we can only go to <see cref="Ordering.After"/> or <see cref="Ordering.Concurrent"/>.</li>
+        /// <li>If we're on <see cref="Ordering.Before"/>, then we can only go to <see cref="Ordering.Before"/>Before or <see cref="Ordering.Concurrent"/>.</li>
+        /// <li>If we go to <see cref="Ordering.Concurrent"/>, then we exit the loop immediately></li>
+        /// <li>If you send in the ordering <see cref="Ordering.FullOrder"/>FullOrder, then you will get a full comparison.</li>
+        /// </ul>
+        /// </para>
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <param name="order">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The other vector clock to compare.</param>
+        /// <param name="order">The desired ordering we wish to check.</param>
+        /// <returns>The true ordering based on the contents of the vectorclock.</returns>
         internal Ordering CompareOnlyTo(VectorClock that, Ordering order)
         {
-            if (Equals(that) || Versions.Equals(that.Versions)) return Ordering.Same;
+            if (ReferenceEquals(this, that) || Versions.Equals(that.Versions)) return Ordering.Same;
 
             return Compare(_versions.GetEnumerator(), that._versions.GetEnumerator(), order == Ordering.Concurrent ? Ordering.FullOrder : order);
         }
@@ -387,30 +424,28 @@ namespace Akka.Cluster
         }
 
         /// <summary>
-        /// TBD
+        /// <para>
+        /// Compares the current vector clock with the supplied vector clock. The outcome will be one of the following:
+        /// </para>
+        /// <ol>
+        /// <li><![CDATA[ Clock 1 is SAME(==)       as Clock 2 iff for all i c1(i) == c2(i) ]]></li>
+        /// <li><![CDATA[ Clock 1 is BEFORE(<)      Clock 2 iff for all i c1(i) <= c2(i) and there exist a j such that c1(j) < c2(j) ]]></li>
+        /// <li><![CDATA[ Clock 1 is AFTER(>)       Clock 2 iff for all i c1(i) >= c2(i) and there exist a j such that c1(j) > c2(j). ]]></li>
+        /// <li><![CDATA[ Clock 1 is CONCURRENT(<>) to Clock 2 otherwise. ]]></li>
+        /// </ol>
         /// </summary>
-        /// <param name="that">TBD</param>
+        /// <param name="that">The vector clock used to compare against.</param>
         /// <returns>TBD</returns>
         public Ordering CompareTo(VectorClock that)
         {
-            /**
-             * Compare two vector clocks. The outcome will be one of the following:
-             * 
-             * {{{
-             *   1. Clock 1 is SAME (==)       as Clock 2 iff for all i c1(i) == c2(i)
-             *   2. Clock 1 is BEFORE (<)      Clock 2 iff for all i c1(i) <= c2(i) and there exist a j such that c1(j) < c2(j)
-             *   3. Clock 1 is AFTER (>)       Clock 2 iff for all i c1(i) >= c2(i) and there exist a j such that c1(j) > c2(j).
-             *   4. Clock 1 is CONCURRENT (<>) to Clock 2 otherwise.
-             * }}}
-             */
             return CompareOnlyTo(that, Ordering.FullOrder);
         }
 
         /// <summary>
-        /// Merges this VectorClock with another VectorClock. E.g. merges its versioned history.
+        /// Merges the vector clock with another <see cref="VectorClock"/> (e.g. merges its versioned history).
         /// </summary>
-        /// <param name="that">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="that">The vector clock to merge into the current clock.</param>
+        /// <returns>A newly created <see cref="VectorClock"/> with the current vector clock and the given vector clock merged.</returns>
         public VectorClock Merge(VectorClock that)
         {
             var mergedVersions = that.Versions;
@@ -426,27 +461,25 @@ namespace Akka.Cluster
         }
 
         /// <summary>
-        /// Prunes the specified removed node.
+        /// Removes the specified node from the current vector clock.
         /// </summary>
-        /// <param name="removedNode">The removed node.</param>
-        /// <returns>TBD</returns>
+        /// <param name="removedNode">The node that is being removed.</param>
+        /// <returns>A newly created <see cref="VectorClock"/> that has the given node removed.</returns>
         public VectorClock Prune(Node removedNode)
         {
-            if (Versions.ContainsKey(removedNode))
+            var newVersions = Versions.Remove(removedNode);
+            if (!ReferenceEquals(newVersions, Versions))
             {
-                return Create(Versions.Remove(removedNode));
+                return Create(newVersions);
             }
             return this;
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override string ToString()
         {
-            return String.Format("VectorClock({0})",
-                _versions.Select(p => p.Key + "->" + p.Value).Aggregate((n, t) => n + ", " + t));
+            var versions = _versions.Select(p => p.Key + "->" + p.Value);
+            return $"VectorClock({string.Join(", ", versions)})";
         }
     }
 }

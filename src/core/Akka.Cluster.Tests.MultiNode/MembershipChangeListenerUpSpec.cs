@@ -31,11 +31,7 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class MembershipChangeListenerUpMultiNode1 : MembershipChangeListenerUpSpec { }
-    public class MembershipChangeListenerUpMultiNode2 : MembershipChangeListenerUpSpec { }
-    public class MembershipChangeListenerUpMultiNode3 : MembershipChangeListenerUpSpec { }
-
-    public abstract class MembershipChangeListenerUpSpec : MultiNodeClusterSpec
+    public class MembershipChangeListenerUpSpec : MultiNodeClusterSpec
     {
         private class Listener : ReceiveActor
         {
@@ -65,11 +61,11 @@ namespace Akka.Cluster.Tests.MultiNode
 
         private readonly MembershipChangeListenerUpConfig _config;
 
-        protected MembershipChangeListenerUpSpec() : this(new MembershipChangeListenerUpConfig())
+        public MembershipChangeListenerUpSpec() : this(new MembershipChangeListenerUpConfig())
         {
         }
 
-        protected MembershipChangeListenerUpSpec(MembershipChangeListenerUpConfig config) : base(config)
+        protected MembershipChangeListenerUpSpec(MembershipChangeListenerUpConfig config) : base(config, typeof(MembershipChangeListenerUpSpec))
         {
             _config = config;
         }

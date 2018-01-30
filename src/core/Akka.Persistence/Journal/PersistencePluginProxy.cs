@@ -13,15 +13,28 @@ using Akka.Event;
 
 namespace Akka.Persistence.Journal
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     public class PersistencePluginProxy : ActorBase, IWithUnboundedStash
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public sealed class TargetLocation
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="address">TBD</param>
             public TargetLocation(Address address)
             {
                 Address = address;
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public Address Address { get; private set; }
         }
 
@@ -31,6 +44,11 @@ namespace Akka.Persistence.Journal
             private InitTimeout() { }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="system">TBD</param>
+        /// <param name="address">TBD</param>
         public static void SetTargetLocation(ActorSystem system, Address address)
         {
             var persistence = Persistence.Instance.Apply(system);
@@ -39,6 +57,10 @@ namespace Akka.Persistence.Journal
                 persistence.SnapshotStoreFor(null).Tell(new TargetLocation(address));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="system">TBD</param>
         public static void Start(ActorSystem system)
         {
             var persistence = Persistence.Instance.Apply(system);
@@ -54,12 +76,12 @@ namespace Akka.Persistence.Journal
 
         private class Journal : IPluginType
         {
-            public string Qualifier { get { return "journal"; } }
+            public string Qualifier => "journal";
         }
 
         private class SnapshotStore : IPluginType
         {
-            public string Qualifier { get { return "snapshot-store"; } }
+            public string Qualifier => "snapshot-store";
         }
 
         private readonly Config _config;
@@ -70,6 +92,14 @@ namespace Akka.Persistence.Journal
         private readonly Address _selfAddress;
         private readonly ILoggingAdapter _log = Context.GetLogger();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PersistencePluginProxy"/> class.
+        /// </summary>
+        /// <param name="config">The configuration used to configure the proxy.</param>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown when configuration is undefined for the plugin
+        /// or an unknown plugin type is defined.
+        /// </exception>
         public PersistencePluginProxy(Config config)
         {
             _config = config;
@@ -79,19 +109,25 @@ namespace Akka.Persistence.Journal
             else if (pluginId.Equals("akka.persistence.snapshot-store.proxy"))
                 _pluginType = new SnapshotStore();
             else
-                throw new ArgumentException(string.Format("Unknown plugin type: {0}.", pluginId));
+                throw new ArgumentException($"Unknown plugin type: {pluginId}.");
             _initTimeout = config.GetTimeSpan("init-timeout");
             var key = "target-" + _pluginType.Qualifier + "-plugin";
             _targetPluginId = config.GetString(key);
             if (string.IsNullOrEmpty(_targetPluginId))
-                throw new ArgumentException(string.Format("{0}.{1} must be defined.", pluginId, key));
+                throw new ArgumentException($"{pluginId}.{key} must be defined.");
             _startTarget = config.GetBoolean("start-target-" + _pluginType.Qualifier);
 
             _selfAddress = ((ExtendedActorSystem) Context.System).Provider.DefaultAddress;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public IStash Stash { get; set; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void PreStart()
         {
             if (_startTarget)
@@ -139,11 +175,14 @@ namespace Akka.Persistence.Journal
         {
             return
                 new TimeoutException(
-                    string.Format(
-                        "Target {0} not initialized. Use `PersistencePluginProxy.SetTargetLocation` or set `target-{0}-address`.",
-                        _pluginType.Qualifier));
+                    $"Target {_pluginType.Qualifier} not initialized. Use `PersistencePluginProxy.SetTargetLocation` or set `target-{_pluginType.Qualifier}-address`.");
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="message">TBD</param>
+        /// <returns>TBD</returns>
         protected override bool Receive(object message)
         {
             return Init(message);
@@ -292,7 +331,7 @@ namespace Akka.Persistence.Journal
                     if (message is LoadSnapshot)
                     {
                         var l = (LoadSnapshot) message;
-                        Sender.Tell(new LoadSnapshotResult(null, l.ToSequenceNr));
+                        Sender.Tell(new LoadSnapshotFailed(TimeoutException()));
                     }
                     else if (message is SaveSnapshot)
                     {
@@ -335,11 +374,20 @@ namespace Akka.Persistence.Journal
     /// </summary>
     public class PersistencePluginProxyExtension : ExtensionIdProvider<PersistencePluginProxyExtension>, IExtension
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="system">TBD</param>
         public PersistencePluginProxyExtension(ActorSystem system)
         {
             PersistencePluginProxy.Start(system);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="system">TBD</param>
+        /// <returns>TBD</returns>
         public override PersistencePluginProxyExtension CreateExtension(ExtendedActorSystem system)
         {
             return new PersistencePluginProxyExtension(system);

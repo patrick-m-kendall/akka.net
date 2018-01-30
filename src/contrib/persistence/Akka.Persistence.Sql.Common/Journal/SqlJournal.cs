@@ -8,7 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Configuration;
 using System.Data.Common;
 using System.Linq;
 using System.Threading;
@@ -17,10 +16,12 @@ using Akka.Actor;
 using Akka.Configuration;
 using Akka.Event;
 using Akka.Persistence.Journal;
-using Akka.Persistence.Sql.Common.Queries;
 
 namespace Akka.Persistence.Sql.Common.Journal
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     public abstract class SqlJournal : AsyncWriteJournal, IWithUnboundedStash
     {
         private readonly Dictionary<string, ISet<IActorRef>> _persistenceIdSubscribers = new Dictionary<string, ISet<IActorRef>>();
@@ -35,18 +36,37 @@ namespace Akka.Persistence.Sql.Common.Journal
 
         private ILoggingAdapter _log;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="journalConfig">TBD</param>
         protected SqlJournal(Config journalConfig)
         {
             _settings = new JournalSettings(journalConfig);
             _pendingRequestsCancellation = new CancellationTokenSource();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public IStash Stash { get; set; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public IEnumerable<string> AllPersistenceIds => _allPersistenceIds;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasPersistenceIdSubscribers => _persistenceIdSubscribers.Count != 0;
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasTagSubscribers => _tagSubscribers.Count != 0;
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected bool HasAllPersistenceIdSubscribers => _allPersistenceIdSubscribers.Count != 0;
 
         /// <summary>
@@ -62,6 +82,8 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// <summary>
         /// Initializes a database connection.
         /// </summary>
+        /// <param name="connectionString">TBD</param>
+        /// <returns>TBD</returns>
         protected abstract DbConnection CreateDbConnection(string connectionString);
 
         /// <summary>
@@ -69,6 +91,11 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// </summary>
         public abstract IJournalQueryExecutor QueryExecutor { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="message">TBD</param>
+        /// <returns>TBD</returns>
         protected override bool ReceivePluginInternal(object message)
         {
             return message.Match()
@@ -93,7 +120,6 @@ namespace Akka.Persistence.Sql.Common.Journal
                     Context.Watch(Sender);
                 })
                 .With<Terminated>(terminated => RemoveSubscriber(terminated.ActorRef))
-                .With<Query>(query => HandleEventQuery(query))
                 .WasHandled;
         }
 
@@ -103,6 +129,9 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// Specific table used for message persistence may be defined through configuration within 
         /// 'akka.persistence.journal.sql-server' scope with 'schema-name' and 'table-name' keys.
         /// </summary>
+        /// <param name="messages">TBD</param>
+        /// <exception cref="InvalidOperationException">TBD</exception>
+        /// <returns>TBD</returns>
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
             var persistenceIds = new HashSet<string>();
@@ -170,6 +199,8 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// <summary>
         /// Replays all events with given tag withing provided boundaries from current database.
         /// </summary>
+        /// <param name="replay">TBD</param>
+        /// <returns>TBD</returns>
         protected virtual async Task<long> ReplayTaggedMessagesAsync(ReplayTaggedMessages replay)
         {
             using (var connection = CreateDbConnection())
@@ -185,6 +216,16 @@ namespace Akka.Persistence.Sql.Common.Journal
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="fromSequenceNr">TBD</param>
+        /// <param name="toSequenceNr">TBD</param>
+        /// <param name="max">TBD</param>
+        /// <param name="recoveryCallback">TBD</param>
+        /// <returns>TBD</returns>
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max,
             Action<IPersistentRepresentation> recoveryCallback)
         {
@@ -196,6 +237,9 @@ namespace Akka.Persistence.Sql.Common.Journal
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void PreStart()
         {
             base.PreStart();
@@ -203,12 +247,20 @@ namespace Akka.Persistence.Sql.Common.Journal
             BecomeStacked(WaitingForInitialization);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void PostStop()
         {
             base.PostStop();
             _pendingRequestsCancellation.Cancel();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="message">TBD</param>
+        /// <returns>TBD</returns>
         protected bool WaitingForInitialization(object message)
         {
             return message.Match()
@@ -227,28 +279,43 @@ namespace Akka.Persistence.Sql.Common.Journal
                 .WasHandled;
         }
 
-        private async Task<AllPersistenceIds> Initialize()
+        private async Task<object> Initialize()
         {
-            using (var connection = CreateDbConnection())
+            try
             {
-                await connection.OpenAsync();
-
-                if (_settings.AutoInitialize)
+                using (var connection = CreateDbConnection())
                 {
-                    await QueryExecutor.CreateTablesAsync(connection, _pendingRequestsCancellation.Token);
-                }
+                    await connection.OpenAsync();
 
-                var ids = await QueryExecutor.SelectAllPersistenceIdsAsync(connection, _pendingRequestsCancellation.Token);
-                return new AllPersistenceIds(ids);
+                    if (_settings.AutoInitialize)
+                    {
+                        await QueryExecutor.CreateTablesAsync(connection, _pendingRequestsCancellation.Token);
+                    }
+
+                    var ids = await QueryExecutor.SelectAllPersistenceIdsAsync(connection, _pendingRequestsCancellation.Token);
+                    return new AllPersistenceIds(ids);
+                }
+            }
+            catch (Exception e)
+            {
+                return new Failure {Exception = e};
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public DbConnection CreateDbConnection()
         {
             var connectionString = GetConnectionString();
             return CreateDbConnection(connectionString);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
         public void RemoveSubscriber(IActorRef subscriber)
         {
             var pidSubscriptions = _persistenceIdSubscribers.Values.Where(x => x.Contains(subscriber));
@@ -262,10 +329,14 @@ namespace Akka.Persistence.Sql.Common.Journal
             _allPersistenceIdSubscribers.Remove(subscriber);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
+        /// <param name="tag">TBD</param>
         public void AddTagSubscriber(IActorRef subscriber, string tag)
         {
-            ISet<IActorRef> subscriptions;
-            if (!_tagSubscribers.TryGetValue(tag, out subscriptions))
+            if (!_tagSubscribers.TryGetValue(tag, out var subscriptions))
             {
                 subscriptions = new HashSet<IActorRef>();
                 _tagSubscribers.Add(tag, subscriptions);
@@ -274,16 +345,24 @@ namespace Akka.Persistence.Sql.Common.Journal
             subscriptions.Add(subscriber);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
         public void AddAllPersistenceIdSubscriber(IActorRef subscriber)
         {
             _allPersistenceIdSubscribers.Add(subscriber);
             subscriber.Tell(new CurrentPersistenceIds(AllPersistenceIds));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
+        /// <param name="persistenceId">TBD</param>
         public void AddPersistenceIdSubscriber(IActorRef subscriber, string persistenceId)
         {
-            ISet<IActorRef> subscriptions;
-            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out subscriptions))
+            if (!_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscriptions))
             {
                 subscriptions = new HashSet<IActorRef>();
                 _persistenceIdSubscribers.Add(persistenceId, subscriptions);
@@ -294,11 +373,9 @@ namespace Akka.Persistence.Sql.Common.Journal
 
         private async Task<long> NextTagSequenceNr(string tag)
         {
-            long value;
-            if (!_tagSequenceNr.TryGetValue(tag, out value))
-            {
+            if (!_tagSequenceNr.TryGetValue(tag, out long value))
                 value = await ReadHighestSequenceNrAsync(TagId(tag), 0L);
-            }
+
             value++;
             _tagSequenceNr = _tagSequenceNr.SetItem(tag, value);
             return value;
@@ -351,8 +428,7 @@ namespace Akka.Persistence.Sql.Common.Journal
 
         private void NotifyPersistenceIdChange(string persistenceId)
         {
-            ISet<IActorRef> subscribers;
-            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out subscribers))
+            if (_persistenceIdSubscribers.TryGetValue(persistenceId, out var subscribers))
             {
                 var changed = new EventAppended(persistenceId);
                 foreach (var subscriber in subscribers)
@@ -362,8 +438,7 @@ namespace Akka.Persistence.Sql.Common.Journal
 
         private void NotifyTagChange(string tag)
         {
-            ISet<IActorRef> subscribers;
-            if (_tagSubscribers.TryGetValue(tag, out subscribers))
+            if (_tagSubscribers.TryGetValue(tag, out var subscribers))
             {
                 var changed = new TaggedEventAppended(tag);
                 foreach (var subscriber in subscribers)
@@ -375,6 +450,9 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// Asynchronously deletes all persisted messages identified by provided <paramref name="persistenceId"/>
         /// up to provided message sequence number (inclusive).
         /// </summary>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="toSequenceNr">TBD</param>
+        /// <returns>TBD</returns>
         protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             NotifyNewPersistenceIdAdded(persistenceId);
@@ -388,6 +466,9 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// <summary>
         /// Asynchronously reads a highest sequence number of the event stream related with provided <paramref name="persistenceId"/>.
         /// </summary>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="fromSequenceNr">TBD</param>
+        /// <returns>TBD</returns>
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
             NotifyNewPersistenceIdAdded(persistenceId);
@@ -401,19 +482,28 @@ namespace Akka.Persistence.Sql.Common.Journal
         /// <summary>
         /// Returns connection string from either HOCON configuration or &lt;connectionStrings&gt; section of app.config.
         /// </summary>
+        /// <returns>TBD</returns>
         protected virtual string GetConnectionString()
         {
             var connectionString = _settings.ConnectionString;
+
+#if CONFIGURATION
             if (string.IsNullOrEmpty(connectionString))
             {
-                connectionString = ConfigurationManager.ConnectionStrings[_settings.ConnectionStringName].ConnectionString;
+                connectionString = System.Configuration.ConfigurationManager.ConnectionStrings[_settings.ConnectionStringName].ConnectionString;
             }
+#endif
 
             return connectionString;
         }
 
         #region obsoleted
-        
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="typeName">TBD</param>
+        /// <returns>TBD</returns>
         protected ITimestampProvider GetTimestampProvider(string typeName)
         {
             var type = Type.GetType(typeName, true);
@@ -426,38 +516,6 @@ namespace Akka.Persistence.Sql.Common.Journal
                 return (ITimestampProvider)Activator.CreateInstance(type);
             }
         }
-
-        [Obsolete("Existing SQL persistence query will be obsoleted, once Akka.Persistence.Query will came out")]
-        private void HandleEventQuery(Query query)
-        {
-            var queryId = query.QueryId;
-            var sender = Context.Sender;
-            ReadEvents(queryId, query.Hints, Context.Sender, reply =>
-            {
-                foreach (var adapted in AdaptFromJournal(reply))
-                {
-                    sender.Tell(new QueryResponse(queryId, adapted));
-                }
-            })
-            .ContinueWith(task =>
-                task.IsFaulted || task.IsCanceled ? (IQueryReply)new QueryFailure(queryId, task.Exception) : new QuerySuccess(queryId),
-                TaskContinuationOptions.ExecuteSynchronously)
-            .PipeTo(Context.Sender);
-        }
-
-        /// <summary>
-        /// Performs
-        /// </summary>
-        [Obsolete("Existing SQL persistence query will be obsoleted, once Akka.Persistence.Query will came out")]
-        private async Task ReadEvents(object queryId, IEnumerable<IHint> hints, IActorRef sender, Action<IPersistentRepresentation> replayCallback)
-        {
-            using (var connection = CreateDbConnection())
-            {
-                await connection.OpenAsync();
-                await QueryExecutor.SelectEventsAsync(connection, _pendingRequestsCancellation.Token, hints, replayCallback);
-            }
-        }
-
         #endregion
     }
 }

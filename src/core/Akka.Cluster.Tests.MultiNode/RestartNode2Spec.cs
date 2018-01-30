@@ -38,10 +38,7 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class RestartNode2MultiNode1 : RestartNode2Spec {}
-    public class RestartNode2MultiNode2 : RestartNode2Spec {}
-
-    public abstract class RestartNode2Spec : MultiNodeClusterSpec
+    public class RestartNode2Spec : MultiNodeClusterSpec
     {
         private class Watcher : ReceiveActor
         {
@@ -67,10 +64,10 @@ namespace Akka.Cluster.Tests.MultiNode
                 return ImmutableList.Create(seedNode1Address, GetAddress(_config.Seed2));
             }
         }
-        
-        protected RestartNode2Spec() : this(new RestartNode2SpecConfig()) { }
 
-        protected RestartNode2Spec(RestartNode2SpecConfig config) : base(config)
+        public RestartNode2Spec() : this(new RestartNode2SpecConfig()) { }
+
+        protected RestartNode2Spec(RestartNode2SpecConfig config) : base(config, typeof(RestartNode2Spec))
         {
             _config = config;
             seed1System = new Lazy<ActorSystem>(() => ActorSystem.Create(Sys.Name, Sys.Settings.Config));

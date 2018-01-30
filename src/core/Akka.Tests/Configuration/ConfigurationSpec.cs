@@ -7,7 +7,6 @@
 
 using System;
 using Akka.Configuration.Hocon;
-using System.Configuration;
 using System.Linq;
 using System.Threading;
 using Akka.Actor;
@@ -51,7 +50,6 @@ namespace Akka.Tests.Configuration
             settings.SerializeAllMessages.ShouldBeFalse();
             settings.SerializeAllCreators.ShouldBeFalse();
             settings.UnstartedPushTimeout.Seconds.ShouldBe(10);
-
             settings.DefaultVirtualNodesFactor.ShouldBe(10);
 
             settings.AddLoggingReceive.ShouldBeFalse();
@@ -65,15 +63,17 @@ namespace Akka.Tests.Configuration
             settings.SchedulerClass.ShouldBe(typeof (HashedWheelTimerScheduler).FullName);
         }
 
+#if CONFIGURATION
         [Fact]
         public void Deserializes_hocon_configuration_from_net_config_file()
         {
-            var section = (AkkaConfigurationSection) ConfigurationManager.GetSection("akka");
+            var section = (AkkaConfigurationSection)System.Configuration.ConfigurationManager.GetSection("akka");
             Assert.NotNull(section);
             Assert.False(string.IsNullOrEmpty(section.Hocon.Content));
             var akkaConfig = section.AkkaConfig;
             Assert.NotNull(akkaConfig);
         }
+#endif
 
         [Fact]
         public void Can_create_config_from_source_object()
@@ -82,7 +82,7 @@ namespace Akka.Tests.Configuration
             {
                 StringProperty = "aaa",
                 BoolProperty = true,
-                IntergerArray = new[] {1, 2, 3, 4}
+                IntegerArray = new[] {1, 2, 3, 4}
             };
 
             var config = ConfigurationFactory.FromObject(source);
@@ -90,7 +90,7 @@ namespace Akka.Tests.Configuration
             Assert.Equal("aaa", config.GetString("StringProperty"));
             Assert.Equal(true, config.GetBoolean("BoolProperty"));
 
-            Assert.Equal(new[] {1, 2, 3, 4}, config.GetIntList("IntergerArray").ToArray());
+            Assert.Equal(new[] {1, 2, 3, 4}, config.GetIntList("IntegerArray").ToArray());
         }
 
         [Fact]
@@ -169,7 +169,7 @@ a {
         {
             public string StringProperty { get; set; }
             public bool BoolProperty { get; set; }
-            public int[] IntergerArray { get; set; }
+            public int[] IntegerArray { get; set; }
         }
 
         [Fact]

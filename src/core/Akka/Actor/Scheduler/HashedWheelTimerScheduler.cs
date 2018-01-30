@@ -99,7 +99,7 @@ namespace Akka.Actor
         /// Normalize a wheel size to the nearest power of 2.
         /// </summary>
         /// <param name="ticksPerWheel">The original input per wheel.</param>
-        /// <returns><see cref="ticksPerWheel"/> normalized to the nearest power of 2.</returns>
+        /// <returns><paramref name="ticksPerWheel"/> normalized to the nearest power of 2.</returns>
         private static int NormalizeTicksPerWheel(int ticksPerWheel)
         {
             var normalizedTicksPerWheel = 1;
@@ -130,7 +130,7 @@ namespace Akka.Actor
 
             else if (_workerState == WORKER_STATE_SHUTDOWN)
             {
-                throw new SchedulerException("cannot enque after timer shutdown");
+                throw new SchedulerException("cannot enqueue after timer shutdown");
             }
             else
             {
@@ -139,11 +139,15 @@ namespace Akka.Actor
 
             while (_startTime == 0)
             {
+#if UNSAFE_THREADING
                 try
                 {
                     _workerInitialized.Wait();
                 }
                 catch (ThreadInterruptedException) { }
+#else
+                _workerInitialized.Wait();
+#endif
             }
         }
 
@@ -156,7 +160,7 @@ namespace Akka.Actor
             _startTime = HighResMonotonicClock.Ticks;
             if (_startTime == 0)
             {
-                // 0 means it's an uninitiliazed value, so bump to 1 to indicate it's started
+                // 0 means it's an uninitialized value, so bump to 1 to indicate it's started
                 _startTime = 1;
             }
 
@@ -222,6 +226,7 @@ namespace Akka.Actor
 
                     }
 
+#if UNSAFE_THREADING
                     try
                     {
                         Thread.Sleep(TimeSpan.FromMilliseconds(sleepMs));
@@ -231,6 +236,9 @@ namespace Akka.Actor
                         if (_workerState == WORKER_STATE_SHUTDOWN)
                             return long.MinValue;
                     }
+#else
+                    Thread.Sleep(TimeSpan.FromMilliseconds(sleepMs));
+#endif
                 }
             }
         }
@@ -369,9 +377,7 @@ namespace Akka.Actor
             return Completed;
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
+        /// <inheritdoc/>
         public void Dispose()
         {
             var stopped = Stop();
@@ -576,7 +582,7 @@ namespace Akka.Actor
             private static readonly Action<object> ExecuteRunnableWithState = r => ((IRunnable)r).Run();
 
             /// <summary>
-            /// Execute all <see cref="SchedulerRegistration"/>s that are due by or after <see cref="deadline"/>.
+            /// Execute all <see cref="SchedulerRegistration"/>s that are due by or after <paramref name="deadline"/>.
             /// </summary>
             /// <param name="deadline">The execution time.</param>
             public void Execute(long deadline)

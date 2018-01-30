@@ -15,8 +15,17 @@ namespace Akka.Persistence
     //      but the enhanced PersistentView will not be based on recovery infrastructure, and
     //      therefore this code will be replaced anyway
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal class ViewState
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="name">TBD</param>
+        /// <param name="isRecoveryRunning">TBD</param>
+        /// <param name="stateReceive">TBD</param>
         public ViewState(string name, bool isRecoveryRunning, StateReceive stateReceive)
         {
             Name = name;
@@ -24,16 +33,32 @@ namespace Akka.Persistence
             IsRecoveryRunning = isRecoveryRunning;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public string Name { get; private set; }
+        /// <summary>
+        /// TBD
+        /// </summary>
         public bool IsRecoveryRunning { get; private set; }
+        /// <summary>
+        /// TBD
+        /// </summary>
         public StateReceive StateReceive { get; private set; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString()
         {
             return Name;
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public partial class PersistentView
     {
         /// <summary>
@@ -67,7 +92,7 @@ namespace Akka.Persistence
         /// with the replayed events.
         /// 
         /// If replay succeeds it got highest stored sequence number response from the journal and
-        /// then switche it switches to <see cref="Idle"/> state.
+        /// then switch it switches to <see cref="Idle"/> state.
         /// 
         /// 
         /// If replay succeeds the <see cref="OnReplaySuccess"/> callback method is called, otherwise
@@ -184,7 +209,6 @@ namespace Akka.Persistence
         /// When receiving an <see cref="Update"/> event, switches to <see cref="ReplayStarted"/> state
         /// and triggers an incremental message replay. For any other message invokes actor default behavior.
         /// </summary>
-        /// <returns></returns>
         private ViewState Idle()
         {
             return new ViewState("idle", false, (receive, message) =>
@@ -216,4 +240,3 @@ namespace Akka.Persistence
         }
     }
 }
-

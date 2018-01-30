@@ -19,7 +19,13 @@ namespace Akka.TestKit
     /// to create new instances.
     /// </summary>
     public class TestProbe : TestKitBase, INoImplicitSender, IInternalActorRef
-    {      
+    {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="system">TBD</param>
+        /// <param name="assertions">TBD</param>
+        /// <param name="testProbeName">TBD</param>
         public TestProbe(ActorSystem system, ITestKitAssertions assertions, string testProbeName=null)
             : base(assertions, system, testProbeName)
         {
@@ -74,6 +80,14 @@ namespace Akka.TestKit
             Sender.Tell(message,TestActor);
         }
 
+        /// <summary>
+        /// N/A
+        /// </summary>
+        /// <param name="name">N/A</param>
+        /// <exception cref="NotSupportedException">
+        /// This exception is thrown since a <see cref="TestProbe"/> cannot be created from a <see cref="TestProbe"/>.
+        /// </exception>
+        /// <returns>N/A</returns>
         [Obsolete("Cannot create a TestProbe from a TestProbe", true)]
         public override TestProbe CreateTestProbe(string name=null)
         {
@@ -140,20 +154,41 @@ namespace Akka.TestKit
             ((IInternalActorRef)TestActor).Suspend();
         }
 
+        /// <summary>
+        /// Sends a system message to the test probe
+        /// </summary>
+        /// <param name="message">The message to send</param>
+        /// <param name="sender">NOT USED.</param>
         public void SendSystemMessage(ISystemMessage message, IActorRef sender)
         {
             ((IInternalActorRef)TestActor).SendSystemMessage(message);
         }
 
+        /// <summary>
+        /// Sends a system message to the test probe
+        /// </summary>
+        /// <param name="message">The message to send</param>
         public void SendSystemMessage(ISystemMessage message)
         {
             ((IInternalActorRef)TestActor).SendSystemMessage(message);
         }
 
+        /// <inheritdoc/>
         public int CompareTo(object obj)
         {
             return TestActor.CompareTo(obj);
         }
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            return TestActor.Equals(obj);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return TestActor.GetHashCode();
+        }
     }
 }
-

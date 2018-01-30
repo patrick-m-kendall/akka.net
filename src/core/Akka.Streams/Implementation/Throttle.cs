@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using Akka.Annotations;
 using Akka.Streams.Implementation.Fusing;
 using Akka.Streams.Stage;
 using Akka.Streams.Util;
@@ -16,6 +17,8 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public class Throttle<T> : SimpleLinearGraphStage<T>
     {
         #region stage logic
@@ -91,6 +94,14 @@ namespace Akka.Streams.Implementation
         private readonly ThrottleMode _mode;
         private readonly long _ticksBetweenTokens;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="cost">TBD</param>
+        /// <param name="per">TBD</param>
+        /// <param name="maximumBurst">TBD</param>
+        /// <param name="costCalculation">TBD</param>
+        /// <param name="mode">TBD</param>
         public Throttle(int cost, TimeSpan per, int maximumBurst, Func<T, int> costCalculation, ThrottleMode mode)
         {
             _maximumBurst = maximumBurst;
@@ -103,8 +114,17 @@ namespace Akka.Streams.Implementation
             _ticksBetweenTokens = per.Ticks/cost;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "Throttle";
     }
 }

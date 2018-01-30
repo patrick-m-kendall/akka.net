@@ -16,19 +16,34 @@ using Akka.Actor.Internal;
 
 namespace Akka.TestKit
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     class ActorCellKeepingSynchronizationContext : SynchronizationContext
     {
         private readonly ActorCell _cell;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="cell">TBD</param>
         public ActorCellKeepingSynchronizationContext(ActorCell cell)
         {
             _cell = cell;
         }
 
-
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="d">TBD</param>
+        /// <param name="state">TBD</param>
         public override void Post(SendOrPostCallback d, object state)
         {
+#if UNSAFE_THREADING
             ThreadPool.UnsafeQueueUserWorkItem(_ =>
+#else
+            ThreadPool.QueueUserWorkItem(_ =>
+#endif
             {
                 var oldCell = InternalCurrentActorCellKeeper.Current;
                 var oldContext = Current;
@@ -47,6 +62,11 @@ namespace Akka.TestKit
             }, state);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="d">TBD</param>
+        /// <param name="state">TBD</param>
         public override void Send(SendOrPostCallback d, object state)
         {
             var tcs = new TaskCompletionSource<int>();
@@ -65,5 +85,4 @@ namespace Akka.TestKit
             tcs.Task.Wait();
         }
     }
-}
- 
+} 

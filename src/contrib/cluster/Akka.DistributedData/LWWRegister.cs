@@ -6,32 +6,36 @@
 //-----------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using Akka.Actor;
 using Akka.Cluster;
-using Akka.Util;
 
 namespace Akka.DistributedData
 {
     /// <summary>
     /// Delegate responsible for managing <see cref="LWWRegister{T}"/> clock.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">TBD</typeparam>
     /// <param name="currentTimestamp">The current timestamp value of the <see cref="LWWRegister{T}"/>.</param>
     /// <param name="value">The register value to set and associate with the returned timestamp.</param>
     /// <returns>Next timestamp</returns>
     public delegate long Clock<in T>(long currentTimestamp, T value);
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     [Serializable]
     public sealed class LWWRegisterKey<T> : Key<LWWRegister<T>>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="id">TBD</param>
         public LWWRegisterKey(string id) : base(id)
         {
         }
     }
-    
+
     /// <summary>
     /// Implements a 'Last Writer Wins Register' CRDT, also called a 'LWW-Register'.
     /// 
@@ -49,13 +53,14 @@ namespace Akka.DistributedData
     /// use a timestamp value based on something else, for example an increasing version number
     /// from a database record that is used for optimistic concurrency control.
     /// 
-    /// For first-write-wins semantics you can use the <see cref="LWWRegister.ReverseClock"/> instead of the
+    /// For first-write-wins semantics you can use the <see cref="LWWRegister{T}.ReverseClock"/> instead of the
     /// [[LWWRegister#defaultClock]]
     /// 
     /// This class is immutable, i.e. "modifying" methods return a new instance.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     [Serializable]
-    public class LWWRegister<T> : IReplicatedData<LWWRegister<T>>, IReplicatedDataSerialization, IEquatable<LWWRegister<T>>
+    public sealed partial class LWWRegister<T> : IReplicatedData<LWWRegister<T>>, IReplicatedDataSerialization, IEquatable<LWWRegister<T>>
     {
         /// <summary>
         /// Default clock is using max between DateTime.UtcNow.Ticks and current timestamp + 1.
@@ -70,6 +75,11 @@ namespace Akka.DistributedData
         public static readonly Clock<T> ReverseClock =
             (timestamp, value) => Math.Min(-DateTime.UtcNow.Ticks, timestamp - 1);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="node">TBD</param>
+        /// <param name="initial">TBD</param>
         public LWWRegister(UniqueAddress node, T initial)
         {
             UpdatedBy = node;
@@ -77,6 +87,12 @@ namespace Akka.DistributedData
             Timestamp = DefaultClock(0L, initial);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="node">TBD</param>
+        /// <param name="value">TBD</param>
+        /// <param name="timestamp">TBD</param>
         public LWWRegister(UniqueAddress node, T value, long timestamp)
         {
             UpdatedBy = node;
@@ -84,6 +100,12 @@ namespace Akka.DistributedData
             Timestamp = timestamp;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="node">TBD</param>
+        /// <param name="initial">TBD</param>
+        /// <param name="clock">TBD</param>
         public LWWRegister(UniqueAddress node, T initial, Clock<T> clock)
         {
             UpdatedBy = node;
@@ -92,7 +114,7 @@ namespace Akka.DistributedData
         }
 
         /// <summary>
-        /// Returns a timestamp used to determine predecende in current register updates.
+        /// Returns a timestamp used to determine precedence in current register updates.
         /// </summary>
         public long Timestamp { get; }
 
@@ -114,12 +136,21 @@ namespace Akka.DistributedData
         /// increasing version number from a database record that is used for optimistic
         /// concurrency control.
         /// </summary>
+        /// <param name="node">TBD</param>
+        /// <param name="value">TBD</param>
+        /// <param name="clock">TBD</param>
+        /// <returns>TBD</returns>
         public LWWRegister<T> WithValue(UniqueAddress node, T value, Clock<T> clock = null)
         {
             var c = clock ?? DefaultClock;
             return new LWWRegister<T>(node, value, c(Timestamp, value));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public LWWRegister<T> Merge(LWWRegister<T> other)
         {
             if (other.Timestamp > Timestamp) return other;
@@ -128,7 +159,14 @@ namespace Akka.DistributedData
             return this;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public IReplicatedData Merge(IReplicatedData other) => Merge((LWWRegister<T>)other);
+
+        /// <inheritdoc/>
         public bool Equals(LWWRegister<T> other)
         {
             if (ReferenceEquals(other, null)) return false;
@@ -137,8 +175,10 @@ namespace Akka.DistributedData
             return Timestamp == other.Timestamp && UpdatedBy == other.UpdatedBy && Equals(Value, other.Value);
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object obj) => obj is LWWRegister<T> && Equals((LWWRegister<T>)obj);
 
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
             unchecked
@@ -150,6 +190,7 @@ namespace Akka.DistributedData
             }
         }
 
+        /// <inheritdoc/>
         public override string ToString() => $"LWWRegister(value={Value}, timestamp={Timestamp}, updatedBy={UpdatedBy})";
     }
 }

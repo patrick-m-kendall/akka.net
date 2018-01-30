@@ -9,6 +9,7 @@ using System;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Annotations;
 using Akka.Pattern;
 using Akka.Streams.Actors;
 using Akka.Streams.Dsl;
@@ -23,30 +24,61 @@ using Directive = Akka.Streams.Supervision.Directive;
 
 namespace Akka.Streams.Implementation
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal interface ISinkModule
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         Shape Shape { get; }
+        /// <summary>
+        /// TBD
+        /// </summary>
         object Create(MaterializationContext context, out object materializer);
     }
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    /// <typeparam name="TMat">TBD</typeparam>
+    [InternalApi]
     public abstract class SinkModule<TIn, TMat> : AtomicModule, ISinkModule
     {
         private readonly SinkShape<TIn> _shape;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
         protected SinkModule(SinkShape<TIn> shape)
         {
             _shape = shape;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Shape Shape => _shape;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected virtual string Label => GetType().Name;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public sealed override string ToString() => $"{Label} [{GetHashCode()}%08x]";
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected abstract SinkModule<TIn, TMat> NewInstance(SinkShape<TIn> shape);
 
         /// <summary>
@@ -56,6 +88,9 @@ namespace Akka.Streams.Implementation
         /// union devolves into; unfortunately we do not have union types at our
         /// disposal at this point.
         /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public abstract object Create(MaterializationContext context, out TMat materializer);
 
         object ISinkModule.Create(MaterializationContext context, out object materializer)
@@ -66,6 +101,12 @@ namespace Akka.Streams.Implementation
             return result;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <exception cref="NotSupportedException">TBD</exception>
+        /// <returns>TBD</returns>
         public override IModule ReplaceShape(Shape shape)
         {
             if (Equals(_shape, shape))
@@ -75,9 +116,18 @@ namespace Akka.Streams.Implementation
                 "cannot replace the shape of a Sink, you need to wrap it in a Graph for that");
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override IModule CarbonCopy()
             => NewInstance(new SinkShape<TIn>(Inlet.Create<TIn>(_shape.Inlet.CarbonCopy())));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attrs">TBD</param>
+        /// <returns>TBD</returns>
         protected SinkShape<TIn> AmendShape(Attributes attrs)
         {
             var thisN = Attributes.GetNameOrDefault(null);
@@ -97,19 +147,39 @@ namespace Akka.Streams.Implementation
     /// elements to fill the internal buffers it will assert back-pressure until
     /// a subscriber connects and creates demand for elements to be emitted.
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    [InternalApi]
     internal class PublisherSink<TIn> : SinkModule<TIn, IPublisher<TIn>>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public PublisherSink(Attributes attributes, SinkShape<TIn> shape)
             : base(shape)
         {
             Attributes = attributes;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new PublisherSink<TIn>(attributes, AmendShape(attributes));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<TIn, IPublisher<TIn>> NewInstance(SinkShape<TIn> shape)
             => new PublisherSink<TIn>(Attributes, shape);
 
@@ -118,6 +188,9 @@ namespace Akka.Streams.Implementation
         /// not a Subscriber: a VirtualPublisher is used in order to avoid the immediate
         /// subscription a VirtualProcessor would perform (and it also saves overhead).
         /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out IPublisher<TIn> materializer)
         {
             var processor = new VirtualProcessor<TIn>();
@@ -129,21 +202,46 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
     internal sealed class FanoutPublisherSink<TIn> : SinkModule<TIn, IPublisher<TIn>>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public FanoutPublisherSink(Attributes attributes, SinkShape<TIn> shape) : base(shape)
         {
             Attributes = attributes;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new FanoutPublisherSink<TIn>(attributes, AmendShape(attributes));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<TIn, IPublisher<TIn>> NewInstance(SinkShape<TIn> shape)
             => new FanoutPublisherSink<TIn>(Attributes, shape);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out IPublisher<TIn> materializer)
         {
             var actorMaterializer = ActorMaterializerHelper.Downcast(context.Materializer);
@@ -160,54 +258,53 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// 
-    /// Attaches a subscriber to this stream which will just discard all received elements.
-    /// </summary>
-    public sealed class SinkholeSink<TIn> : SinkModule<TIn, Task>
-    {
-        public SinkholeSink(SinkShape<TIn> shape, Attributes attributes) : base(shape)
-        {
-            Attributes = attributes;
-        }
-
-        public override Attributes Attributes { get; }
-
-        public override IModule WithAttributes(Attributes attributes)
-            => new SinkholeSink<TIn>(AmendShape(attributes), attributes);
-
-        protected override SinkModule<TIn, Task> NewInstance(SinkShape<TIn> shape)
-            => new SinkholeSink<TIn>(shape, Attributes);
-
-        public override object Create(MaterializationContext context, out Task materializer)
-        {
-            var p = new TaskCompletionSource<NotUsed>();
-            materializer = p.Task;
-            return new SinkholeSubscriber<TIn>(p);
-        }
-    }
-
-    /// <summary>
-    /// INTERNAL API
-    /// 
     /// Attaches a subscriber to this stream.
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    [InternalApi]
     public sealed class SubscriberSink<TIn> : SinkModule<TIn, NotUsed>
     {
         private readonly ISubscriber<TIn> _subscriber;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="subscriber">TBD</param>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public SubscriberSink(ISubscriber<TIn> subscriber, Attributes attributes, SinkShape<TIn> shape) : base(shape)
         {
             Attributes = attributes;
             _subscriber = subscriber;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new SubscriberSink<TIn>(_subscriber, attributes, AmendShape(attributes));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<TIn, NotUsed> NewInstance(SinkShape<TIn> shape)
             => new SubscriberSink<TIn>(_subscriber, Attributes, shape);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out NotUsed materializer)
         {
             materializer = NotUsed.Instance;
@@ -220,25 +317,51 @@ namespace Akka.Streams.Implementation
     /// 
     /// A sink that immediately cancels its upstream upon materialization.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class CancelSink<T> : SinkModule<T, NotUsed>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public CancelSink(Attributes attributes, SinkShape<T> shape)
             : base(shape)
         {
             Attributes = attributes;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<T, NotUsed> NewInstance(SinkShape<T> shape)
             => new CancelSink<T>(Attributes, shape);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out NotUsed materializer)
         {
             materializer = NotUsed.Instance;
             return new CancellingSubscriber<T>();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new CancelSink<T>(attributes, AmendShape(attributes));
     }
@@ -249,11 +372,19 @@ namespace Akka.Streams.Implementation
     /// Creates and wraps an actor into <see cref="ISubscriber{T}"/> from the given <see cref="Props"/>,
     /// which should be <see cref="Props"/> for an <see cref="ActorSubscriber"/>.
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    [InternalApi]
     public sealed class ActorSubscriberSink<TIn> : SinkModule<TIn, IActorRef>
     {
         private readonly Props _props;
         private readonly Attributes _attributes;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="props">TBD</param>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public ActorSubscriberSink(Props props, Attributes attributes, SinkShape<TIn> shape)
             : base(shape)
         {
@@ -261,14 +392,33 @@ namespace Akka.Streams.Implementation
             _attributes = attributes;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes => _attributes;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new ActorSubscriberSink<TIn>(_props, attributes, AmendShape(attributes));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<TIn, IActorRef> NewInstance(SinkShape<TIn> shape)
             => new ActorSubscriberSink<TIn>(_props, _attributes, shape);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out IActorRef materializer)
         {
             var subscriberRef = ActorMaterializerHelper.Downcast(context.Materializer).ActorOf(context, _props);
@@ -280,12 +430,21 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    [InternalApi]
     public sealed class ActorRefSink<TIn> : SinkModule<TIn, NotUsed>
     {
         private readonly IActorRef _ref;
         private readonly object _onCompleteMessage;
         private readonly Attributes _attributes;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="ref">TBD</param>
+        /// <param name="onCompleteMessage">TBD</param>
+        /// <param name="attributes">TBD</param>
+        /// <param name="shape">TBD</param>
         public ActorRefSink(IActorRef @ref, object onCompleteMessage, Attributes attributes, SinkShape<TIn> shape)
             : base(shape)
         {
@@ -294,14 +453,33 @@ namespace Akka.Streams.Implementation
             _attributes = attributes;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes => _attributes;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes)
             => new ActorRefSink<TIn>(_ref, _onCompleteMessage, attributes, AmendShape(attributes));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         protected override SinkModule<TIn, NotUsed> NewInstance(SinkShape<TIn> shape)
             => new ActorRefSink<TIn>(_ref, _onCompleteMessage, _attributes, shape);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <returns>TBD</returns>
         public override object Create(MaterializationContext context, out NotUsed materializer)
         {
             var actorMaterializer = ActorMaterializerHelper.Downcast(context.Materializer);
@@ -317,6 +495,8 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class LastOrDefaultStage<T> : GraphStageWithMaterializedValue<SinkShape<T>, Task<T>>
     {
         #region stage logic
@@ -361,15 +541,29 @@ namespace Akka.Streams.Implementation
 
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Inlet<T> In = new Inlet<T>("LastOrDefault.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public LastOrDefaultStage()
         {
             Shape = new SinkShape<T>(In);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SinkShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<Task<T>> CreateLogicAndMaterializedValue(
             Attributes inheritedAttributes)
         {
@@ -381,6 +575,8 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class FirstOrDefaultStage<T> : GraphStageWithMaterializedValue<SinkShape<T>, Task<T>>
     {
         #region stage logic
@@ -389,6 +585,7 @@ namespace Akka.Streams.Implementation
         {
             private readonly TaskCompletionSource<T> _promise;
             private readonly FirstOrDefaultStage<T> _stage;
+            private bool _completionSignalled;
 
             public Logic(TaskCompletionSource<T> promise, FirstOrDefaultStage<T> stage) : base(stage.Shape)
             {
@@ -400,36 +597,58 @@ namespace Akka.Streams.Implementation
             public override void OnPush()
             {
                 _promise.TrySetResult(Grab(_stage.In));
+                _completionSignalled = true;
                 CompleteStage();
             }
 
             public override void OnUpstreamFinish()
             {
                 _promise.TrySetResult(default(T));
+                _completionSignalled = true;
                 CompleteStage();
             }
 
             public override void OnUpstreamFailure(Exception e)
             {
                 _promise.TrySetException(e);
+                _completionSignalled = true;
                 FailStage(e);
             }
 
-
+            public override void PostStop()
+            {
+                if(!_completionSignalled)
+                    _promise.TrySetException(new AbruptStageTerminationException(this));
+            }
+            
             public override void PreStart() => Pull(_stage.In);
         }
 
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Inlet<T> In = new Inlet<T>("FirstOrDefault.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public FirstOrDefaultStage()
         {
             Shape = new SinkShape<T>(In);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SinkShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<Task<T>> CreateLogicAndMaterializedValue(
             Attributes inheritedAttributes)
         {
@@ -441,6 +660,8 @@ namespace Akka.Streams.Implementation
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class SeqStage<T> : GraphStageWithMaterializedValue<SinkShape<T>, Task<IImmutableList<T>>>
     {
         #region stage logic
@@ -450,6 +671,7 @@ namespace Akka.Streams.Implementation
             private readonly SeqStage<T> _stage;
             private readonly TaskCompletionSource<IImmutableList<T>> _promise;
             private IImmutableList<T> _buf = ImmutableList<T>.Empty;
+            private bool _completionSignalled;
 
             public Logic(SeqStage<T> stage, TaskCompletionSource<IImmutableList<T>> promise) : base(stage.Shape)
             {
@@ -468,13 +690,21 @@ namespace Akka.Streams.Implementation
             public override void OnUpstreamFinish()
             {
                 _promise.TrySetResult(_buf);
+                _completionSignalled = true;
                 CompleteStage();
             }
 
             public override void OnUpstreamFailure(Exception e)
             {
                 _promise.TrySetException(e);
+                _completionSignalled = true;
                 FailStage(e);
+            }
+
+            public override void PostStop()
+            {
+                if (!_completionSignalled)
+                    _promise.TrySetException(new AbruptStageTerminationException(this));
             }
 
             public override void PreStart() => Pull(_stage.In);
@@ -482,17 +712,34 @@ namespace Akka.Streams.Implementation
 
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public SeqStage()
         {
             Shape = new SinkShape<T>(In);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = DefaultAttributes.SeqSink;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SinkShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Inlet<T> In = new Inlet<T>("Seq.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<Task<IImmutableList<T>>> CreateLogicAndMaterializedValue(
             Attributes inheritedAttributes)
         {
@@ -500,12 +747,18 @@ namespace Akka.Streams.Implementation
             return new LogicAndMaterializedValue<Task<IImmutableList<T>>>(new Logic(this, promise), promise.Task);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "SeqStage";
     }
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class QueueSink<T> : GraphStageWithMaterializedValue<SinkShape<T>, ISinkQueue<T>>
     {
         #region stage logic
@@ -623,17 +876,35 @@ namespace Akka.Streams.Implementation
 
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Inlet<T> In = new Inlet<T>("QueueSink.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public QueueSink()
         {
             Shape = new SinkShape<T>(In);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = DefaultAttributes.QueueSink;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SinkShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <exception cref="ArgumentException">TBD</exception>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<ISinkQueue<T>> CreateLogicAndMaterializedValue(
             Attributes inheritedAttributes)
         {
@@ -645,12 +916,18 @@ namespace Akka.Streams.Implementation
             return new LogicAndMaterializedValue<ISinkQueue<T>>(logic, new Materialized(t => logic.Invoke(t)));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "QueueSink";
     }
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="TIn">TBD</typeparam>
+    /// <typeparam name="TMat">TBD</typeparam>
     internal sealed class LazySink<TIn, TMat> : GraphStageWithMaterializedValue<SinkShape<TIn>, Task<TMat>>
     {
         #region Logic
@@ -660,6 +937,8 @@ namespace Akka.Streams.Implementation
             private readonly LazySink<TIn, TMat> _stage;
             private readonly TaskCompletionSource<TMat> _completion;
             private readonly Lazy<Decider> _decider;
+
+            private bool _completed;
 
             public Logic(LazySink<TIn, TMat> stage, Attributes inheritedAttributes,
                 TaskCompletionSource<TMat> completion) : base(stage.Shape)
@@ -690,6 +969,11 @@ namespace Akka.Streams.Implementation
                     _stage._sinkFactory(element)
                         .ContinueWith(t => callback(Result.FromTask(t)),
                             TaskContinuationOptions.ExecuteSynchronously);
+                    SetHandler(_stage.In, new LambdaInHandler(
+                            onPush: () => { },
+                            onUpstreamFinish: GotCompletionEvent,
+                            onUpstreamFailure: Failure
+                        ));
                 }
                 catch (Exception ex)
                 {
@@ -715,6 +999,12 @@ namespace Akka.Streams.Implementation
 
             public override void OnUpstreamFailure(Exception e) => Failure(e);
 
+            private void GotCompletionEvent()
+            {
+                SetKeepGoing(true);
+                _completed = true;
+            }
+
             public override void PreStart() => Pull(_stage.In);
 
             private void Failure(Exception ex)
@@ -726,8 +1016,18 @@ namespace Akka.Streams.Implementation
             private void InitInternalSource(Sink<TIn, TMat> sink, TIn firstElement)
             {
                 var sourceOut = new SubSource(this, firstElement);
-                _completion.TrySetResult(Source.FromGraph(sourceOut.Source)
-                    .RunWith(sink, Interpreter.SubFusingMaterializer));
+
+                try {
+                    var matVal = Source.FromGraph(sourceOut.Source)
+                        .RunWith(sink, Interpreter.SubFusingMaterializer);
+                    _completion.TrySetResult(matVal);
+                }
+                catch (Exception ex)
+                {
+                    _completion.TrySetException(ex);
+                    FailStage(ex);
+                }
+                
             }
 
             #region SubSource
@@ -736,7 +1036,6 @@ namespace Akka.Streams.Implementation
             {
                 private readonly Logic _logic;
                 private readonly LazySink<TIn, TMat> _stage;
-                private bool _completed;
 
                 public SubSource(Logic logic, TIn firstElement) : base(logic, "LazySink")
                 {
@@ -746,7 +1045,7 @@ namespace Akka.Streams.Implementation
                     SetHandler(new LambdaOutHandler(onPull: () =>
                     {
                         Push(firstElement);
-                        if (_completed)
+                        if (_logic._completed)
                             SourceComplete();
                         else
                             SwitchToFinalHandler();
@@ -754,11 +1053,7 @@ namespace Akka.Streams.Implementation
 
                     logic.SetHandler(_stage.In, new LambdaInHandler(
                         onPush: () => Push(logic.Grab(_stage.In)),
-                        onUpstreamFinish: () =>
-                        {
-                            logic.SetKeepGoing(true);
-                            _completed = true;
-                        },
+                        onUpstreamFinish: logic.GotCompletionEvent,
                         onUpstreamFailure: SourceFailure));
                 }
 
@@ -795,6 +1090,11 @@ namespace Akka.Streams.Implementation
         private readonly Func<TIn, Task<Sink<TIn, TMat>>> _sinkFactory;
         private readonly Func<TMat> _zeroMaterialised;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="sinkFactory">TBD</param>
+        /// <param name="zeroMaterialised">TBD</param>
         public LazySink(Func<TIn, Task<Sink<TIn, TMat>>> sinkFactory, Func<TMat> zeroMaterialised)
         {
             _sinkFactory = sinkFactory;
@@ -803,12 +1103,26 @@ namespace Akka.Streams.Implementation
             Shape = new SinkShape<TIn>(In);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = DefaultAttributes.LazySink;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public Inlet<TIn> In { get; } = new Inlet<TIn>("lazySink.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SinkShape<TIn> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<Task<TMat>> CreateLogicAndMaterializedValue(Attributes inheritedAttributes)
         {
             var completion = new TaskCompletionSource<TMat>();
@@ -816,6 +1130,10 @@ namespace Akka.Streams.Implementation
             return new LogicAndMaterializedValue<Task<TMat>>(stageLogic, completion.Task);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "LazySink";
     }
 }

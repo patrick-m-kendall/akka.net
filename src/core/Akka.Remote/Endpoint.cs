@@ -18,11 +18,13 @@ using Akka.Dispatch;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
 using Akka.Pattern;
+using Akka.Remote.Serialization;
 using Akka.Remote.Transport;
 using Akka.Serialization;
 using Akka.Util;
 using Akka.Util.Internal;
-using Google.ProtocolBuffers;
+using Google.Protobuf;
+using SerializedMessage = Akka.Remote.Serialization.Proto.Msg.Payload;
 
 namespace Akka.Remote
 {
@@ -109,7 +111,7 @@ namespace Akka.Remote
                 }
                 if (payload is ActorSelectionMessage)
                 {
-                    var sel = (ActorSelectionMessage) payload;
+                    var sel = (ActorSelectionMessage)payload;
 
                     var actorPath = "/" + string.Join("/", sel.Elements.Select(x => x.ToString()));
                     if (settings.UntrustedMode
@@ -181,21 +183,23 @@ namespace Akka.Remote
     internal class EndpointException : AkkaException
     {
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="EndpointException"/> class.
         /// </summary>
-        /// <param name="msg">TBD</param>
-        /// <param name="cause">TBD</param>
-        public EndpointException(string msg, Exception cause = null) : base(msg, cause) { }
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="cause">The exception that is the cause of the current exception.</param>
+        public EndpointException(string message, Exception cause = null) : base(message, cause) { }
 
+#if SERIALIZATION
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="EndpointException"/> class.
         /// </summary>
-        /// <param name="info">TBD</param>
-        /// <param name="context">TBD</param>
+        /// <param name="info">The <see cref="SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
+        /// <param name="context">The <see cref="StreamingContext"/> that contains contextual information about the source or destination.</param>
         protected EndpointException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#endif
     }
 
     /// <summary>
@@ -211,11 +215,12 @@ namespace Akka.Remote
         /// <summary>
         /// TBD
         /// </summary>
+        /// <param name="message">TBD</param>
         /// <param name="localAddress">TBD</param>
         /// <param name="remoteAddress">TBD</param>
         /// <param name="cause">TBD</param>
-        public ShutDownAssociation(Address localAddress, Address remoteAddress, Exception cause = null)
-            : base(string.Format("Shut down address: {0}", remoteAddress), cause)
+        public ShutDownAssociation(string message, Address localAddress, Address remoteAddress, Exception cause = null)
+            : base(message, cause)
         {
             RemoteAddress = remoteAddress;
             LocalAddress = localAddress;
@@ -240,12 +245,13 @@ namespace Akka.Remote
         /// <summary>
         /// TBD
         /// </summary>
+        /// <param name="message">TBD</param>
         /// <param name="localAddress">TBD</param>
         /// <param name="remoteAddress">TbD</param>
         /// <param name="cause">TBD</param>
         /// <param name="disassociateInfo">TBD</param>
-        public InvalidAssociation(Address localAddress, Address remoteAddress, Exception cause = null, DisassociateInfo? disassociateInfo = null)
-            : base(string.Format("Invalid address: {0}", remoteAddress), cause)
+        public InvalidAssociation(string message, Address localAddress, Address remoteAddress, Exception cause = null, DisassociateInfo? disassociateInfo = null)
+            : base(message, cause)
         {
             RemoteAddress = remoteAddress;
             LocalAddress = localAddress;
@@ -310,11 +316,11 @@ namespace Akka.Remote
     internal sealed class EndpointDisassociatedException : EndpointException
     {
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="EndpointDisassociatedException"/> class.
         /// </summary>
-        /// <param name="msg">TBD</param>
-        public EndpointDisassociatedException(string msg)
-            : base(msg)
+        /// <param name="message">The message that describes the error.</param>
+        public EndpointDisassociatedException(string message)
+            : base(message)
         {
         }
     }
@@ -325,20 +331,20 @@ namespace Akka.Remote
     internal sealed class EndpointAssociationException : EndpointException
     {
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="EndpointAssociationException"/> class.
         /// </summary>
-        /// <param name="msg">TBD</param>
-        public EndpointAssociationException(string msg)
-            : base(msg)
+        /// <param name="message">The message that describes the error.</param>
+        public EndpointAssociationException(string message)
+            : base(message)
         {
         }
 
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="EndpointAssociationException"/> class.
         /// </summary>
-        /// <param name="msg">TBD</param>
-        /// <param name="inner">TBD</param>
-        public EndpointAssociationException(string msg, Exception inner) : base(msg, inner) { }
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="innerException">The exception that is the cause of the current exception.</param>
+        public EndpointAssociationException(string message, Exception innerException) : base(message, innerException) { }
     }
 
     /// <summary>
@@ -347,23 +353,23 @@ namespace Akka.Remote
     internal sealed class OversizedPayloadException : EndpointException
     {
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="OversizedPayloadException"/> class.
         /// </summary>
-        /// <param name="msg">TBD</param>
-        public OversizedPayloadException(string msg)
-            : base(msg)
+        /// <param name="message">The message that describes the error.</param>
+        public OversizedPayloadException(string message)
+            : base(message)
         {
         }
     }
 
-    #endregion
+#endregion
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
     internal class ReliableDeliverySupervisor : ReceiveActor
     {
-        #region Internal message classes
+#region Internal message classes
 
         /// <summary>
         /// TBD
@@ -401,7 +407,7 @@ namespace Akka.Remote
             private TooLongIdle() { }
         }
 
-        #endregion
+#endregion
 
         private readonly ILoggingAdapter _log = Context.GetLogger();
 
@@ -523,7 +529,7 @@ namespace Akka.Remote
             return new SeqNo(tmp);
         }
 
-        #region ActorBase methods and Behaviors
+#region ActorBase methods and Behaviors
 
         /// <summary>
         /// TBD
@@ -547,10 +553,12 @@ namespace Akka.Remote
         }
 
         /// <summary>
-        /// TBD
+        /// N/A
         /// </summary>
-        /// <param name="reason">TBD</param>
-        /// <exception cref="IllegalActorStateException">TBD</exception>
+        /// <param name="reason">N/A</param>
+        /// <exception cref="IllegalActorStateException">
+        /// This exception is thrown automatically since <see cref="ReliableDeliverySupervisor"/> must not be restarted.
+        /// </exception>
         protected override void PostRestart(Exception reason)
         {
             throw new IllegalActorStateException("BUG: ReliableDeliverySupervisor has been attempted to be restarted. This must not happen.");
@@ -653,7 +661,7 @@ namespace Akka.Remote
                         Context.System.Scheduler.ScheduleTellOnce(_settings.RetryGateClosedFor, Self, new Ungate(), Self);
                     }
                 }
-                
+
                 Become(() => Gated(true, earlyUngateRequested));
             });
             Receive<IsIdle>(idle => Sender.Tell(Idle.Instance));
@@ -744,9 +752,9 @@ namespace Akka.Remote
             ReceiveAny(o => { }); // ignore
         }
 
-        #endregion
+#endregion
 
-        #region Static methods and Internal Message Types
+#region Static methods and Internal Message Types
 
         /// <summary>
         /// TBD
@@ -817,7 +825,7 @@ namespace Akka.Remote
                     .WithDispatcher(dispatcher);
         }
 
-        #endregion
+#endregion
 
         // Extracted this method to solve a compiler issue with `Receive<TooLongIdle>`
         private void HandleTooLongIdle()
@@ -867,7 +875,7 @@ namespace Akka.Remote
             }
         }
 
-        #region Writer create
+#region Writer create
 
         private IActorRef CreateWriter()
         {
@@ -875,14 +883,14 @@ namespace Akka.Remote
                 Context.ActorOf(RARP.For(Context.System)
                     .ConfigureDispatcher(
                         EndpointWriter.EndpointWriterProps(_currentHandle, _localAddress, _remoteAddress, _refuseUid, _transport,
-                            _settings, new AkkaPduProtobuffCodec(), _receiveBuffers, Self)
+                            _settings, new AkkaPduProtobuffCodec(Context.System), _receiveBuffers, Self)
                             .WithDeploy(Deploy.Local)),
                     "endpointWriter");
             Context.Watch(writer);
             return writer;
         }
 
-        #endregion
+#endregion
 
     }
 
@@ -936,7 +944,7 @@ namespace Akka.Remote
             Settings = settings;
         }
 
-        #region Event publishing methods
+#region Event publishing methods
 
         /// <summary>
         /// TBD
@@ -968,7 +976,7 @@ namespace Akka.Remote
             }
         }
 
-        #endregion
+#endregion
 
     }
 
@@ -1053,7 +1061,7 @@ namespace Akka.Remote
 
         private readonly IRemoteMetrics _remoteMetrics;
 
-        #region ActorBase methods
+#region ActorBase methods
 
         /// <summary>
         /// TBD
@@ -1063,8 +1071,7 @@ namespace Akka.Remote
         {
             return new OneForOneStrategy(ex =>
             {
-                //we're going to throw an exception anyway
-                PublishAndThrow(ex, LogLevel.ErrorLevel);
+                PublishAndThrow(ex, LogLevel.ErrorLevel, false);
                 return Directive.Escalate;
             });
         }
@@ -1086,18 +1093,7 @@ namespace Akka.Remote
         {
             if (_handle == null)
             {
-                Transport
-                    .Associate(RemoteAddress, _refuseUid)
-                    .ContinueWith(handle =>
-                    {
-                        if (handle.IsFaulted)
-                        {
-                            var inner = handle.Exception?.Flatten().InnerException;
-                            return (object)new Status.Failure(new InvalidAssociationException("Association failure", inner));
-                        }
-                        return new Handle(handle.Result);
-                    }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default)
-                    .PipeTo(Self);
+                AssociateAsync().PipeTo(Self);
             }
             else
             {
@@ -1106,6 +1102,18 @@ namespace Akka.Remote
 
             var ackIdleInterval = new TimeSpan(Settings.SysMsgAckTimeout.Ticks / 2);
             _ackIdleTimerCancelable = Context.System.Scheduler.ScheduleTellRepeatedlyCancelable(ackIdleInterval, ackIdleInterval, Self, AckIdleCheckTimer.Instance, Self);
+        }
+
+        private async Task<object> AssociateAsync()
+        {
+            try
+            {
+                return new Handle(await Transport.Associate(RemoteAddress, _refuseUid).ConfigureAwait(false));
+            }
+            catch (Exception e)
+            {
+                return new Status.Failure(e.InnerException ?? e);
+            }
         }
 
         /// <summary>
@@ -1131,9 +1139,9 @@ namespace Akka.Remote
             EventPublisher.NotifyListeners(new DisassociatedEvent(LocalAddress, RemoteAddress, Inbound));
         }
 
-        #endregion
+#endregion
 
-        #region Receives
+#region Receives
 
         private void Initializing()
         {
@@ -1142,15 +1150,13 @@ namespace Akka.Remote
             {
                 if (failure.Cause is InvalidAssociationException)
                 {
-                    PublishAndThrow(new InvalidAssociation(LocalAddress, RemoteAddress, failure.Cause),
-                        LogLevel.WarningLevel);
+                    if (failure.Cause.InnerException == null)
+                    {
+                        PublishAndThrow(new InvalidAssociation(failure.Cause.Message, LocalAddress, RemoteAddress), LogLevel.WarningLevel);
+                    }
                 }
-                else
-                {
-                    PublishAndThrow(
-                        new EndpointAssociationException(string.Format("Association failed with {0}",
-                            RemoteAddress)), LogLevel.DebugLevel);
-                }
+
+                PublishAndThrow(new InvalidAssociation($"Association failed with {RemoteAddress}", LocalAddress, RemoteAddress, failure.Cause), LogLevel.WarningLevel);
             });
             Receive<Handle>(handle =>
             {
@@ -1270,23 +1276,26 @@ namespace Akka.Remote
             }
         }
 
-        #endregion
+#endregion
 
-        #region Internal methods
+#region Internal methods
 
         private Deadline NewAckDeadline()
         {
             return Deadline.Now + Settings.SysMsgAckTimeout;
         }
 
-        private void PublishAndThrow(Exception reason, LogLevel level)
+        private void PublishAndThrow(Exception reason, LogLevel level, bool needToThrow = true)
         {
             reason.Match()
                 .With<EndpointDisassociatedException>(endpoint => PublishDisassociated())
-                .With<ShutDownAssociation>(shutdown => {}) // don't log an error for planned shutdowns
+                .With<ShutDownAssociation>(shutdown => { }) // don't log an error for planned shutdowns
                 .Default(msg => PublishError(reason, level));
 
-            throw reason;
+            if (needToThrow)
+            {
+                throw reason;
+            }
         }
 
         private IActorRef StartReadEndpoint(AkkaProtocolHandle handle)
@@ -1427,7 +1436,7 @@ namespace Akka.Remote
                 }
 
                 var pdu = _codec.ConstructMessage(send.Recipient.LocalAddressToUse, send.Recipient,
-                    SerializeMessage(send.Message), send.SenderOption, send.Seq, _lastAck);
+                    this.SerializeMessage(send.Message), send.SenderOption, send.Seq, _lastAck);
 
                 _remoteMetrics.LogPayloadBytes(send.Message, pdu.Length);
 
@@ -1475,57 +1484,53 @@ namespace Akka.Remote
 
         private void SendBufferedMessages()
         {
-            var sendDelegate = new Func<object, bool>(msg =>
+            bool SendDelegate(object msg)
             {
-                if (msg is EndpointManager.Send)
+                switch (msg)
                 {
-                    return WriteSend(msg as EndpointManager.Send);
+                    case EndpointManager.Send s:
+                        return WriteSend(s);
+                    case FlushAndStop f:
+                        DoFlushAndStop();
+                        return false;
+                    case StopReading stop:
+                        _reader?.Tell(stop, stop.ReplyTo);
+                        return true;
+                    default:
+                        return true;
                 }
-                else if (msg is FlushAndStop)
-                {
-                    DoFlushAndStop();
-                    return false;
-                }
-                else if (msg is StopReading)
-                {
-                    var s = msg as StopReading;
-                    if (_reader != null) _reader.Tell(s, s.ReplyTo);
-                }
-                return true;
-            });
+            }
 
-            Func<int, bool> writeLoop = null;
-            writeLoop = new Func<int, bool>(count =>
+            bool WriteLoop(int count)
             {
                 if (count > 0 && _buffer.Any())
                 {
-                    if (sendDelegate(_buffer.First.Value))
+                    if (SendDelegate(_buffer.First.Value))
                     {
                         _buffer.RemoveFirst();
                         _writeCount += 1;
-                        return writeLoop(count - 1);
+                        return WriteLoop(count - 1);
                     }
                     return false;
                 }
 
                 return true;
-            });
+            }
 
-            Func<bool> writePrioLoop = null;
-            writePrioLoop = () =>
+            bool WritePrioLoop()
             {
                 if (!_prioBuffer.Any()) return true;
                 if (WriteSend(_prioBuffer.First.Value))
                 {
                     _prioBuffer.RemoveFirst();
-                    return writePrioLoop();
+                    return WritePrioLoop();
                 }
                 return false;
-            };
+            }
 
             var size = _buffer.Count;
 
-            var ok = writePrioLoop() && writeLoop(SendBufferBatchSize);
+            var ok = WritePrioLoop() && WriteLoop(SendBufferBatchSize);
             if (!_buffer.Any() && !_prioBuffer.Any())
             {
                 // FIXME remove this when testing/tuning is completed
@@ -1564,9 +1569,9 @@ namespace Akka.Remote
             ScheduleBackoffTimer();
         }
 
-        #endregion
+#endregion
 
-        #region Static methods and Internal messages
+#region Static methods and Internal messages
 
         // These settings are not configurable because wrong configuration will break the auto-tuning
         private const int SendBufferBatchSize = 5;
@@ -1790,7 +1795,7 @@ namespace Akka.Remote
 
         private const string AckIdleTimerName = "AckIdleTimer";
 
-        #endregion
+#endregion
 
     }
 
@@ -1845,15 +1850,14 @@ namespace Akka.Remote
         private readonly RemoteActorRefProvider _provider;
         private AckedReceiveBuffer<Message> _ackedReceiveBuffer = new AckedReceiveBuffer<Message>();
 
-        #region ActorBase overrides
+#region ActorBase overrides
 
         /// <summary>
         /// TBD
         /// </summary>
         protected override void PreStart()
         {
-            EndpointManager.ResendState resendState;
-            if (_receiveBuffers.TryGetValue(new EndpointManager.Link(LocalAddress, RemoteAddress), out resendState))
+            if (_receiveBuffers.TryGetValue(new EndpointManager.Link(LocalAddress, RemoteAddress), out var resendState))
             {
                 _ackedReceiveBuffer = resendState.Buffer;
                 DeliverAndAck();
@@ -1922,20 +1926,19 @@ namespace Akka.Remote
                 if (ackAndMessage.AckOption != null && _reliableDeliverySupervisor != null)
                     _reliableDeliverySupervisor.Tell(ackAndMessage.AckOption);
             });
-            ReceiveAny(o => {}); // ignore
+            ReceiveAny(o => { }); // ignore
         }
 
-        #endregion
+#endregion
 
 
 
-        #region Lifecycle event handlers
+#region Lifecycle event handlers
 
         private void SaveState()
         {
             var key = new EndpointManager.Link(LocalAddress, RemoteAddress);
-            EndpointManager.ResendState previousValue;
-            _receiveBuffers.TryGetValue(key, out previousValue);
+            _receiveBuffers.TryGetValue(key, out var previousValue);
             UpdateSavedState(key, previousValue);
         }
 
@@ -1962,15 +1965,11 @@ namespace Akka.Remote
                 }
                 else
                 {
-                    var canReplace = _receiveBuffers.ContainsKey(key) && _receiveBuffers[key].Equals(expectedState);
-                    if (canReplace)
-                    {
+                    if (_receiveBuffers.TryGetValue(key, out var resendState) && resendState.Equals(expectedState))
                         _receiveBuffers[key] = Merge(new EndpointManager.ResendState(_uid, _ackedReceiveBuffer), expectedState);
-                    }
                     else
                     {
-                        EndpointManager.ResendState previousValue;
-                        _receiveBuffers.TryGetValue(key, out previousValue);
+                        _receiveBuffers.TryGetValue(key, out var previousValue);
                         expectedState = previousValue;
                         continue;
                     }
@@ -1984,10 +1983,10 @@ namespace Akka.Remote
             switch (info)
             {
                 case DisassociateInfo.Quarantined:
-                    throw new InvalidAssociation(LocalAddress, RemoteAddress, new InvalidAssociationException("The remote system has quarantined this system. No further associations " +
-                                                                                                              "to the remote system are possible until this system is restarted."), DisassociateInfo.Quarantined);
+                    throw new InvalidAssociation("The remote system has quarantined this system. No further associations " +
+                                                   "to the remote system are possible until this system is restarted.", LocalAddress, RemoteAddress, disassociateInfo: DisassociateInfo.Quarantined);
                 case DisassociateInfo.Shutdown:
-                    throw new ShutDownAssociation(LocalAddress, RemoteAddress, new InvalidAssociationException("The remote system terminated the association because it is shutting down."));
+                    throw new ShutDownAssociation($"The remote system terminated the association because it is shutting down. Shut down address: {RemoteAddress}", LocalAddress, RemoteAddress);
                 case DisassociateInfo.Unknown:
                 default:
                     Context.Stop(Self);
@@ -2017,9 +2016,9 @@ namespace Akka.Remote
             }
         }
 
-        #endregion
+#endregion
 
-        #region Static members
+#region Static members
 
         /// <summary>
         /// TBD
@@ -2055,7 +2054,6 @@ namespace Akka.Remote
                             .WithDispatcher(settings.Dispatcher);
         }
 
-        #endregion
+#endregion
     }
 }
-

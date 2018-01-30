@@ -16,6 +16,10 @@ namespace Akka.Tests.Configuration
 {
     public class HoconTests
     {
+        public HoconTests()
+        {
+        }
+
         //Added tests to conform to the HOCON spec https://github.com/Lightbendhub/config/blob/master/HOCON.md
         [Fact]
         public void Can_use_paths_as_keys_3_14()
@@ -745,7 +749,7 @@ test.value = 456
             Assert.Equal(null, ConfigurationFactory.ParseString(hocon).GetString("a"));
         }
 
-        [Fact(Skip = "we currently do not make any destinction between quoted and unquoted strings once parsed")]
+        [Fact(Skip = "we currently do not make any distinction between quoted and unquoted strings once parsed")]
         public void Can_assign_quoted_null_string_to_field()
         {
             var hocon = @"a=""null""";
@@ -878,6 +882,59 @@ ip = ""::1""
 
             var res = ConfigurationFactory.ParseString(hocon).GetTimeSpan("timespan");
             Assert.Equal(50, res.TotalMilliseconds);
+        }
+
+        [Fact(Skip = "not working yet")]
+        public void Can_substitute_with_concated_string()
+        {
+            var hocon = @"
+    akka.cluster.name = cluster
+    akka.cluster.seed-node = ""akka.tcp://${akka.cluster.name}@127.0.0.1:4053""";
+
+            var config = ConfigurationFactory.ParseString(hocon);
+            var actual = config.GetString("akka.cluster.seed-node");
+            Console.Out.WriteLine($"RESULT:{actual}");
+            Assert.Equal("akka.tcp://cluster@127.0.0.1:4053", actual);
+        }
+
+        [Fact]
+        public void Can_parse_unquoted_string_list()
+        {
+            var hocon = @"hocon-array = [array-value-1, array-value-2]";
+            var config = ConfigurationFactory.ParseString(hocon);
+            var actual = config.GetStringList("hocon-array");
+            Assert.True(actual.Contains("array-value-1"));
+            Assert.True(actual.Contains("array-value-2"));
+        }
+
+        [Fact]
+        public void Should_throw_an_exception_when_parsing_invalid_unquoted_string()
+        {
+            var hocon = @"unquoted-string = akka.tcp://Cluster@127.0.0.1:4053";
+            Assert.Throws<ConfigurationException>(() => { ConfigurationFactory.ParseString(hocon); });
+        }
+        
+        [Fact]
+        public void Should_throw_an_exception_when_parsing_invalid_unquoted_string_inside_array()
+        {
+            var hocon = @"akka.cluster.seed-nodes = [akka.tcp://Cluster@127.0.0.1:4053]";
+            Assert.Throws<ConfigurationException>(() => { ConfigurationFactory.ParseString(hocon); });
+        }
+
+        [Fact]
+        public void Should_throw_human_readable_exception_message_when_parsing_invalid_string()
+        {
+            var hocon = 
+@"akka {
+    ask-timeout = $10ms
+}";
+            var ex = Assert.Throws<FormatException>(() => { ConfigurationFactory.ParseString(hocon); });
+
+            var expectedMessage = $@"Unknown token at position {hocon.IndexOf('$')}: 
+    ask-timeout = $10ms
+                  ^    
+".Replace("\r\n", "\n");
+            ex.Message.Replace("\r\n", "\n").ShouldBe(expectedMessage);
         }
     }
 }

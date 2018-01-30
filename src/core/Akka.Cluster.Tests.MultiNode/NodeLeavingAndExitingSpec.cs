@@ -30,11 +30,7 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class NodeLeavingAndExitingNode1 : NodeLeavingAndExitingSpec { }
-    public class NodeLeavingAndExitingNode2 : NodeLeavingAndExitingSpec { }
-    public class NodeLeavingAndExitingNode3 : NodeLeavingAndExitingSpec { }
-
-    public abstract class NodeLeavingAndExitingSpec : MultiNodeClusterSpec
+    public class NodeLeavingAndExitingSpec : MultiNodeClusterSpec
     {
         private class Listener : UntypedActor
         {
@@ -73,11 +69,11 @@ namespace Akka.Cluster.Tests.MultiNode
 
         private readonly NodeLeavingAndExitingConfig _config;
 
-        protected NodeLeavingAndExitingSpec() : this(new NodeLeavingAndExitingConfig())
+        public NodeLeavingAndExitingSpec() : this(new NodeLeavingAndExitingConfig())
         {
         }
 
-        protected NodeLeavingAndExitingSpec(NodeLeavingAndExitingConfig config) : base(config)
+        protected NodeLeavingAndExitingSpec(NodeLeavingAndExitingConfig config) : base(config, typeof(NodeLeavingAndExitingSpec))
         {
             _config = config;
         }

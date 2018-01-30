@@ -22,7 +22,7 @@ namespace Akka.Cluster.Tests.MultiNode
         public RoleName Third { get; private set; }
         public RoleName Forth { get; private set; }
 
-        public LeaderElectionSpecConfig(bool failureDectectorPuppet)
+        public LeaderElectionSpecConfig(bool failureDetectorPuppet)
         {
             Controller = Role("controller");
             First = Role("first");
@@ -31,86 +31,22 @@ namespace Akka.Cluster.Tests.MultiNode
             Forth = Role("forth");
 
             CommonConfig = DebugConfig(false)
-                .WithFallback(MultiNodeClusterSpec.ClusterConfig(failureDectectorPuppet));
+                .WithFallback(MultiNodeClusterSpec.ClusterConfig(failureDetectorPuppet));
         }
     }
 
-    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode1 : LeaderElectionSpec
+    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode : LeaderElectionSpec
     {
-        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode1()
-            : base(true)
+        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode()
+            : base(true, typeof(LeaderElectionWithFailureDetectorPuppetMultiJvmNode))
         {
         }
     }
 
-    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode2 : LeaderElectionSpec
+    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode : LeaderElectionSpec
     {
-        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode2()
-            : base(true)
-        {
-        }
-    }
-
-    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode3 : LeaderElectionSpec
-    {
-        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode3()
-            : base(true)
-        {
-        }
-    }
-
-    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode4 : LeaderElectionSpec
-    {
-        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode4()
-            : base(true)
-        {
-        }
-    }
-
-    public class LeaderElectionWithFailureDetectorPuppetMultiJvmNode5 : LeaderElectionSpec
-    {
-        public LeaderElectionWithFailureDetectorPuppetMultiJvmNode5()
-            : base(true)
-        {
-        }
-    }
-
-    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode1 : LeaderElectionSpec
-    {
-        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode1()
-            : base(false)
-        {
-        }
-    }
-
-    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode2 : LeaderElectionSpec
-    {
-        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode2()
-            : base(false)
-        {
-        }
-    }
-
-    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode3 : LeaderElectionSpec
-    {
-        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode3()
-            : base(false)
-        {
-        }
-    }
-
-    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode4 : LeaderElectionSpec
-    {
-        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode4()
-            : base(false)
-        {
-        }
-    }
-
-    public class LeaderElectionWithAccrualFailureDetectorMultiJvmNode5 : LeaderElectionSpec
-    {
-        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode5()
-            : base(false)
+        public LeaderElectionWithAccrualFailureDetectorMultiJvmNode()
+            : base(false, typeof(LeaderElectionWithAccrualFailureDetectorMultiJvmNode))
         {
         }
     }
@@ -121,14 +57,14 @@ namespace Akka.Cluster.Tests.MultiNode
 
         private readonly ImmutableList<RoleName> _sortedRoles;
 
-        protected LeaderElectionSpec(bool failureDetectorPuppet)
-            : this(new LeaderElectionSpecConfig(failureDetectorPuppet))
+        protected LeaderElectionSpec(bool failureDetectorPuppet, Type type)
+            : this(new LeaderElectionSpecConfig(failureDetectorPuppet), type)
         {
 
         }
 
-        protected LeaderElectionSpec(LeaderElectionSpecConfig config)
-            : base(config)
+        protected LeaderElectionSpec(LeaderElectionSpecConfig config, Type type)
+            : base(config, type)
         {
             _config = config;
             _sortedRoles = ImmutableList.Create(
@@ -143,8 +79,8 @@ namespace Akka.Cluster.Tests.MultiNode
         public void LeaderElectionSpecs()
         {
             Cluster_of_four_nodes_must_be_able_to_elect_single_leader();
-            Cluster_of_four_nodes_must_be_able_to_reelect_sinle_leader_after_leader_has_left();
-            Cluster_of_four_nodes_must_be_able_to_reelect_sinle_leader_after_leader_has_left_again();
+            Cluster_of_four_nodes_must_be_able_to_reelect_single_leader_after_leader_has_left();
+            Cluster_of_four_nodes_must_be_able_to_reelect_single_leader_after_leader_has_left_again();
         }
 
         public void Cluster_of_four_nodes_must_be_able_to_elect_single_leader()
@@ -216,7 +152,7 @@ namespace Akka.Cluster.Tests.MultiNode
             }
         }
 
-        public void Cluster_of_four_nodes_must_be_able_to_reelect_sinle_leader_after_leader_has_left()
+        public void Cluster_of_four_nodes_must_be_able_to_reelect_single_leader_after_leader_has_left()
         {
             Within(TimeSpan.FromSeconds(30), () =>
             {
@@ -225,7 +161,7 @@ namespace Akka.Cluster.Tests.MultiNode
             });
         }
 
-        public void Cluster_of_four_nodes_must_be_able_to_reelect_sinle_leader_after_leader_has_left_again()
+        public void Cluster_of_four_nodes_must_be_able_to_reelect_single_leader_after_leader_has_left_again()
         {
             Within(TimeSpan.FromSeconds(30), () =>
             {

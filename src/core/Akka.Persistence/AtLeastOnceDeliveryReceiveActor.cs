@@ -11,17 +11,25 @@ using Akka.Actor;
 namespace Akka.Persistence
 {
     /// <summary>
-    ///     Receive persistent actor type, that sends messages with at-least-once delivery semantics to it's destinations.
+    /// Receive persistent actor type, that sends messages with at-least-once delivery semantics to it's destinations.
     /// </summary>
     public abstract class AtLeastOnceDeliveryReceiveActor : ReceivePersistentActor
     {
         private readonly AtLeastOnceDeliverySemantic _atLeastOnceDeliverySemantic;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AtLeastOnceDeliveryReceiveActor"/> class.
+        /// </summary>
         protected AtLeastOnceDeliveryReceiveActor()
         {
             _atLeastOnceDeliverySemantic = new AtLeastOnceDeliverySemantic(Context, Extension.Settings.AtLeastOnceDelivery);
 
         }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AtLeastOnceDeliveryReceiveActor"/> class.
+        /// </summary>
+        /// <param name="settings">TBD</param>
         protected AtLeastOnceDeliveryReceiveActor(PersistenceSettings.AtLeastOnceDeliverySettings settings)
         {
             _atLeastOnceDeliverySemantic = new AtLeastOnceDeliverySemantic(Context, settings);
@@ -35,10 +43,7 @@ namespace Akka.Persistence
         /// configuration key. This method can be overridden by implementation classes to return
         /// non-default values.
         /// </summary>
-        public virtual TimeSpan RedeliverInterval
-        {
-            get { return _atLeastOnceDeliverySemantic.RedeliverInterval; ; }
-        }
+        public virtual TimeSpan RedeliverInterval => _atLeastOnceDeliverySemantic.RedeliverInterval;
 
         /// <summary>
         /// Maximum number of unconfirmed messages that will be sent at each redelivery burst
@@ -50,10 +55,7 @@ namespace Akka.Persistence
         /// configuration key. This method can be overridden by implementation classes to return
         /// non-default values.
         /// </summary>
-        public int RedeliveryBurstLimit
-        {
-            get { return _atLeastOnceDeliverySemantic.RedeliveryBurstLimit; }
-        }
+        public int RedeliveryBurstLimit => _atLeastOnceDeliverySemantic.RedeliveryBurstLimit;
 
         /// <summary>
         /// After this number of delivery attempts a <see cref="UnconfirmedWarning" /> message will be sent to
@@ -63,10 +65,7 @@ namespace Akka.Persistence
         /// configuration key. This method can be overridden by implementation classes to return
         /// non-default values.
         /// </summary>
-        public int WarnAfterNumberOfUnconfirmedAttempts
-        {
-            get { return _atLeastOnceDeliverySemantic.WarnAfterNumberOfUnconfirmedAttempts; }
-        }
+        public int WarnAfterNumberOfUnconfirmedAttempts => _atLeastOnceDeliverySemantic.WarnAfterNumberOfUnconfirmedAttempts;
 
         /// <summary>
         /// Maximum number of unconfirmed messages, that this actor is allowed to hold in the memory.
@@ -77,39 +76,49 @@ namespace Akka.Persistence
         /// configuration key. This method can be overridden by implementation classes to return
         /// non-default values.
         /// </summary>
-        public int MaxUnconfirmedMessages
-        {
-            get { return _atLeastOnceDeliverySemantic.MaxUnconfirmedMessages; }
-        }
+        public int MaxUnconfirmedMessages => _atLeastOnceDeliverySemantic.MaxUnconfirmedMessages;
 
         /// <summary>
         /// Number of messages that have not been confirmed yet.
         /// </summary>
-        public int UnconfirmedCount
-        {
-            get { return _atLeastOnceDeliverySemantic.UnconfirmedCount; }
-        }
+        public int UnconfirmedCount => _atLeastOnceDeliverySemantic.UnconfirmedCount;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="cause">TBD</param>
+        /// <param name="message">TBD</param>
         public override void AroundPreRestart(Exception cause, object message)
         {
             _atLeastOnceDeliverySemantic.Cancel();
             base.AroundPreRestart(cause, message);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override void AroundPostStop()
         {
             _atLeastOnceDeliverySemantic.Cancel();
             base.AroundPostStop();
         }
 
-
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void OnReplaySuccess()
         {
             _atLeastOnceDeliverySemantic.OnReplaySuccess();
             base.OnReplaySuccess();
         }
 
-        protected override bool AroundReceive(Receive receive, object message)
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="receive">TBD</param>
+        /// <param name="message">TBD</param>
+        /// <returns>TBD</returns>
+        protected internal override bool AroundReceive(Receive receive, object message)
         {
             return _atLeastOnceDeliverySemantic.AroundReceive(receive, message) || base.AroundReceive(receive, message);
         }
@@ -129,6 +138,8 @@ namespace Akka.Persistence
         /// During recovery this method will not send out the message, but it will be sent later if no matching 
         /// <see cref="ConfirmDelivery" /> was performed.
         /// </summary>
+        /// <param name="destination">TBD</param>
+        /// <param name="deliveryMessageMapper">TBD</param>
         /// <exception cref="MaxUnconfirmedMessagesExceededException">
         /// Thrown when <see cref="UnconfirmedCount" /> is greater than or equal to <see cref="MaxUnconfirmedMessages" />.
         /// </exception>
@@ -152,6 +163,8 @@ namespace Akka.Persistence
         /// During recovery this method will not send out the message, but it will be sent later if no matching 
         /// <see cref="ConfirmDelivery" /> was performed.
         /// </summary>
+        /// <param name="destination">TBD</param>
+        /// <param name="deliveryMessageMapper">TBD</param>
         /// <exception cref="MaxUnconfirmedMessagesExceededException">
         /// Thrown when <see cref="UnconfirmedCount" /> is greater than or equal to <see cref="MaxUnconfirmedMessages" />.
         /// </exception>
@@ -170,6 +183,7 @@ namespace Akka.Persistence
         /// Call this method when a message has been confirmed by the destination,
         /// or to abort re-sending.
         /// </summary>
+        /// <param name="deliveryId">TBD</param>
         /// <returns>True the first time the <paramref name="deliveryId"/> is confirmed, false for duplicate confirmations.</returns>
         public bool ConfirmDelivery(long deliveryId)
         {
@@ -188,6 +202,7 @@ namespace Akka.Persistence
         /// It is easiest to include the bytes of the <see cref="AtLeastOnceDeliverySnapshot"/>
         /// as a blob in your custom snapshot.
         /// </summary>
+        /// <returns>TBD</returns>
         public AtLeastOnceDeliverySnapshot GetDeliverySnapshot()
         {
             return _atLeastOnceDeliverySemantic.GetDeliverySnapshot();
@@ -197,6 +212,7 @@ namespace Akka.Persistence
         /// If snapshot from <see cref="GetDeliverySnapshot" /> was saved it will be received during recovery
         /// phase in a <see cref="SnapshotOffer" /> message and should be set with this method.
         /// </summary>
+        /// <param name="snapshot">TBD</param>
         public void SetDeliverySnapshot(AtLeastOnceDeliverySnapshot snapshot)
         {
             _atLeastOnceDeliverySemantic.SetDeliverySnapshot(snapshot);

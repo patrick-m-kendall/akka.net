@@ -11,19 +11,40 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
-using Akka.Cluster;
+using Akka.Util.Internal;
 
 namespace Akka.DistributedData
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal interface IGSet
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         IImmutableSet<object> Elements { get; }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public static class GSet
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <param name="elements">TBD</param>
+        /// <returns>TBD</returns>
         public static GSet<T> Create<T>(params T[] elements) => new GSet<T>(ImmutableHashSet.Create(elements));
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <param name="elements">TBD</param>
+        /// <returns>TBD</returns>
         public static GSet<T> Create<T>(IImmutableSet<T> elements) => new GSet<T>(elements);
     }
 
@@ -38,20 +59,54 @@ namespace Akka.DistributedData
     /// 
     /// This class is immutable, i.e. "modifying" methods return a new instance.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     [Serializable]
-    public sealed class GSet<T> : FastMerge<GSet<T>>, IReplicatedDataSerialization, IGSet, IEquatable<GSet<T>>, IEnumerable<T>
+    public sealed class GSet<T> :
+        FastMerge<GSet<T>>,
+        IReplicatedDataSerialization,
+        IGSet,
+        IEquatable<GSet<T>>,
+        IEnumerable<T>,
+        IDeltaReplicatedData<GSet<T>, GSet<T>>,
+        IReplicatedDelta
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly GSet<T> Empty = new GSet<T>();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public IImmutableSet<T> Elements { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public GSet() : this(ImmutableHashSet<T>.Empty) { }
 
-        public GSet(IImmutableSet<T> elements)
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="elements">TBD</param>
+        public GSet(IImmutableSet<T> elements) : this(elements, null) { }
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="elements">TBD</param>
+        /// <param name="delta"></param>
+        public GSet(IImmutableSet<T> elements, GSet<T> delta)
         {
             Elements = elements;
+            _syncRoot = delta;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public override GSet<T> Merge(GSet<T> other)
         {
             if (ReferenceEquals(this, other) || other.IsAncestorOf(this)) return ClearAncestor();
@@ -63,16 +118,43 @@ namespace Akka.DistributedData
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="element">TBD</param>
+        /// <returns>TBD</returns>
         public bool Contains(T element) => Elements.Contains(element);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public bool IsEmpty => Elements.Count == 0;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public int Count => Elements.Count;
 
-        public GSet<T> Add(T element) => AssignAncestor(new GSet<T>(Elements.Add(element)));
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="element">TBD</param>
+        /// <returns>TBD</returns>
+        public GSet<T> Add(T element)
+        {
+            var newDelta = Delta != null
+                ? new GSet<T>(Delta.Elements.Add(element))
+                : new GSet<T>(ImmutableHashSet.Create(element));
+            return AssignAncestor(new GSet<T>(Elements.Add(element), newDelta));
+        }
 
         IImmutableSet<object> IGSet.Elements => Elements.Cast<object>().ToImmutableHashSet();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public bool Equals(GSet<T> other)
         {
             if (ReferenceEquals(other, null)) return false;
@@ -81,37 +163,78 @@ namespace Akka.DistributedData
             return Elements.SetEquals(other.Elements);
         }
 
+        /// <inheritdoc/>
         public IEnumerator<T> GetEnumerator() => Elements.GetEnumerator();
 
-        public override bool Equals(object obj) => obj is GSet<T> && Equals((GSet<T>) obj);
+        /// <inheritdoc/>
+        public override bool Equals(object obj) => obj is GSet<T> && Equals((GSet<T>)obj);
 
-        public override int GetHashCode() => Elements.GetHashCode();
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = 0;
+                foreach (var element in Elements)
+                {
+                    hashCode = (hashCode * 397) ^ (element?.GetHashCode() ?? 0);
+                }
+                return hashCode;
+            }
+        }
+
+
+        IReplicatedDelta IDeltaReplicatedData.Delta => Delta;
+
+        IReplicatedData IDeltaReplicatedData.MergeDelta(IReplicatedDelta delta) => MergeDelta((GSet<T>)delta);
+        IReplicatedData IDeltaReplicatedData.ResetDelta() => ResetDelta();
+
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             var sb = new StringBuilder("GSet(");
-            foreach (var element in Elements)
-            {
-                sb.Append(element).Append(',');
-            }
-            sb.Append(")");
+            sb.AppendJoin(", ", Elements);
 
             return sb.ToString();
         }
+
+        [NonSerialized]
+        private readonly GSet<T> _syncRoot; //HACK: we need to ignore this field during serialization. This is the only way to do so on Hyperion on .NET Core
+
+        public GSet<T> Delta => _syncRoot;
+        public GSet<T> MergeDelta(GSet<T> delta) => Merge(delta);
+
+        public GSet<T> ResetDelta() => Delta == null ? this : AssignAncestor(new GSet<T>(Elements));
+        IDeltaReplicatedData IReplicatedDelta.Zero => Empty;
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     internal interface IGSetKey
     { }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public sealed class GSetKey<T> : Key<GSet<T>>, IKeyWithGenericType, IGSetKey, IReplicatedDataSerialization
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="id">TBD</param>
         public GSetKey(string id)
             : base(id)
         {
             Type = typeof(T);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public Type Type { get; }
     }
 }

@@ -40,19 +40,15 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class AttemptSysMsgRedeliveryMultiNode1 : AttemptSysMsgRedeliverySpec { }
-    public class AttemptSysMsgRedeliveryMultiNode2 : AttemptSysMsgRedeliverySpec { }
-    public class AttemptSysMsgRedeliveryMultiNode3 : AttemptSysMsgRedeliverySpec { }
-
-    public abstract class AttemptSysMsgRedeliverySpec : MultiNodeClusterSpec
+    public class AttemptSysMsgRedeliverySpec : MultiNodeClusterSpec
     {
         private readonly AttemptSysMsgRedeliverySpecConfig _config;
 
-        protected AttemptSysMsgRedeliverySpec() : this(new AttemptSysMsgRedeliverySpecConfig())
+        public AttemptSysMsgRedeliverySpec() : this(new AttemptSysMsgRedeliverySpecConfig())
         {
         }
 
-        protected AttemptSysMsgRedeliverySpec(AttemptSysMsgRedeliverySpecConfig config) : base(config)
+        protected AttemptSysMsgRedeliverySpec(AttemptSysMsgRedeliverySpecConfig config) : base(config, typeof(AttemptSysMsgRedeliverySpec))
         {
             _config = config;
         }

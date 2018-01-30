@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Annotations;
 using Akka.Streams.Dsl;
 using Akka.Streams.Implementation.Stages;
 using Akka.Streams.Stage;
@@ -18,10 +19,23 @@ using Akka.Util;
 
 namespace Akka.Streams.Implementation.Fusing
 {
+    /// <summary>
+    /// TBD
+    /// </summary>
     public static class GraphStages
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <returns>TBD</returns>
         public static SimpleLinearGraphStage<T> Identity<T>() => Implementation.Fusing.Identity<T>.Instance;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <returns>TBD</returns>
         internal static GraphStageWithMaterializedValue<FlowShape<T, T>, Task> TerminationWatcher<T>()
             => Implementation.Fusing.TerminationWatcher<T>.Instance;
 
@@ -33,6 +47,9 @@ namespace Akka.Streams.Implementation.Fusing
         /// This can either be implemented inside the stage itself, or this method can be used,
         /// which adds a detacher stage to every input.
         /// </summary>
+        /// <typeparam name="T">TBD</typeparam>
+        /// <param name="stage">TBD</param>
+        /// <returns>TBD</returns>
         internal static IGraph<UniformFanInShape<T, T>, NotUsed> WithDetachedInputs<T>(GraphStage<UniformFanInShape<T, T>> stage)
         {
             return GraphDsl.Create(builder =>
@@ -52,10 +69,20 @@ namespace Akka.Streams.Implementation.Fusing
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    [InternalApi]
     public class GraphStageModule : AtomicModule
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly IGraphStageWithMaterializedValue<Shape, object> Stage;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <param name="attributes">TBD</param>
+        /// <param name="stage">TBD</param>
         public GraphStageModule(Shape shape, Attributes attributes, IGraphStageWithMaterializedValue<Shape, object> stage)
         {
             Shape = shape;
@@ -63,38 +90,80 @@ namespace Akka.Streams.Implementation.Fusing
             Stage = stage;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Shape Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="shape">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule ReplaceShape(Shape shape) => new CopiedModule(shape, Attributes.None, this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override IModule CarbonCopy() => ReplaceShape(Shape.DeepCopy());
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override Attributes Attributes { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="attributes">TBD</param>
+        /// <returns>TBD</returns>
         public override IModule WithAttributes(Attributes attributes) => new GraphStageModule(Shape, attributes, Stage);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => $"GraphStage({Stage}) [{GetHashCode()}%08x]";
     }
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public abstract class SimpleLinearGraphStage<T> : GraphStage<FlowShape<T, T>>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Inlet<T> Inlet;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Outlet<T> Outlet;
 
-        protected SimpleLinearGraphStage()
+        /// <summary>
+        /// TBD
+        /// </summary>
+        protected SimpleLinearGraphStage(string name = null)
         {
-            var name = GetType().Name;
+            name = name ?? GetType().Name;
             Inlet = new Inlet<T>(name + ".in");
             Outlet = new Outlet<T>(name + ".out");
             Shape = new FlowShape<T, T>(Inlet, Outlet);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override FlowShape<T, T> Shape { get; }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public sealed class Identity<T> : SimpleLinearGraphStage<T>
     {
         #region internal classes
@@ -105,8 +174,7 @@ namespace Akka.Streams.Implementation.Fusing
             public Logic(Identity<T> stage) : base(stage.Shape)
             {
                 _stage = stage;
-                SetHandler(stage.Inlet, this);
-                SetHandler(stage.Outlet, this);
+                SetHandler(stage.Inlet, stage.Outlet, this);
             }
 
             public override void OnPush() => Push(_stage.Outlet, Grab(_stage.Inlet));
@@ -115,21 +183,34 @@ namespace Akka.Streams.Implementation.Fusing
         }
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly Identity<T> Instance = new Identity<T>();
 
         private Identity()
         {
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = Attributes.CreateName("identityOp");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
     }
 
     /// <summary>
     /// INTERNAL API
     /// </summary>
-    public sealed class Detacher<T> : GraphStage<FlowShape<T, T>>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
+    public sealed class Detacher<T> : SimpleLinearGraphStage<T>
     {
         #region internal classes
         private sealed class Logic : InAndOutGraphStageLogic
@@ -140,8 +221,7 @@ namespace Akka.Streams.Implementation.Fusing
             {
                 _stage = stage;
 
-                SetHandler(stage.Inlet, this);
-                SetHandler(stage.Outlet, this);
+                SetHandler(stage.Inlet, stage.Outlet, this);
             }
 
             public override void PreStart() => TryPull(_stage.Inlet);
@@ -179,29 +259,41 @@ namespace Akka.Streams.Implementation.Fusing
         }
         #endregion
 
-        public readonly Inlet<T> Inlet;
-
-        public readonly Outlet<T> Outlet;
-
-        public Detacher()
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public Detacher() : base("Detacher")
         {
-            InitialAttributes = Attributes.CreateName("Detacher");
-            Inlet = new Inlet<T>("in");
-            Outlet = new Outlet<T>("out");
-            Shape = new FlowShape<T, T>(Inlet, Outlet);
         }
 
-        protected override Attributes InitialAttributes { get; }
+        /// <summary>
+        /// TBD
+        /// </summary>
+        protected override Attributes InitialAttributes { get; } = Attributes.CreateName("Detacher");
 
-        public override FlowShape<T, T> Shape { get; }
-
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "Detacher";
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     internal sealed class TerminationWatcher<T> : GraphStageWithMaterializedValue<FlowShape<T, T>, Task>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly TerminationWatcher<T> Instance = new TerminationWatcher<T>();
 
         #region internal classes 
@@ -210,14 +302,14 @@ namespace Akka.Streams.Implementation.Fusing
         {
             private readonly TerminationWatcher<T> _stage;
             private readonly TaskCompletionSource<NotUsed> _finishPromise;
+            private bool _completedSignalled;
 
             public Logic(TerminationWatcher<T> stage, TaskCompletionSource<NotUsed> finishPromise) : base(stage.Shape)
             {
                 _stage = stage;
                 _finishPromise = finishPromise;
 
-                SetHandler(stage._inlet, this);
-                SetHandler(stage._outlet, this);
+                SetHandler(stage._inlet, stage._outlet, this);
             }
 
             public override void OnPush() => Push(_stage._outlet, Grab(_stage._inlet));
@@ -225,12 +317,14 @@ namespace Akka.Streams.Implementation.Fusing
             public override void OnUpstreamFinish()
             {
                 _finishPromise.TrySetResult(NotUsed.Instance);
+                _completedSignalled = true;
                 CompleteStage();
             }
 
             public override void OnUpstreamFailure(Exception e)
             {
                 _finishPromise.TrySetException(e);
+                _completedSignalled = true;
                 FailStage(e);
             }
 
@@ -239,40 +333,73 @@ namespace Akka.Streams.Implementation.Fusing
             public override void OnDownstreamFinish()
             {
                 _finishPromise.TrySetResult(NotUsed.Instance);
+                _completedSignalled = true;
                 CompleteStage();
+            }
+
+            public override void PostStop()
+            {
+                if (!_completedSignalled)
+                    _finishPromise.TrySetException(new AbruptStageTerminationException(this));
             }
         }
 
         #endregion
 
-        private readonly Inlet<T> _inlet = new Inlet<T>("terminationWatcher.in");
-        private readonly Outlet<T> _outlet = new Outlet<T>("terminationWatcher.out");
+        private readonly Inlet<T> _inlet = new Inlet<T>("TerminationWatcher.in");
+        private readonly Outlet<T> _outlet = new Outlet<T>("TerminationWatcher.out");
 
         private TerminationWatcher()
         {
             Shape = new FlowShape<T, T>(_inlet, _outlet);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = DefaultAttributes.TerminationWatcher;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override FlowShape<T, T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<Task> CreateLogicAndMaterializedValue(Attributes inheritedAttributes)
         {
             var finishPromise = new TaskCompletionSource<NotUsed>();
             return new LogicAndMaterializedValue<Task>(new Logic(this, finishPromise), finishPromise.Task);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "TerminationWatcher";
     }
 
+    // TODO: fix typo
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     internal sealed class FLowMonitorImpl<T> : AtomicReference<object>, IFlowMonitor
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         public FLowMonitorImpl() : base(FlowMonitor.Initialized.Instance)
         {
             
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public FlowMonitor.IStreamState State
         {
             get
@@ -286,6 +413,10 @@ namespace Akka.Streams.Implementation.Fusing
         }
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     internal sealed class MonitorFlow<T> : GraphStageWithMaterializedValue<FlowShape<T, T>, IFlowMonitor>
     {
         #region Logic
@@ -300,8 +431,7 @@ namespace Akka.Streams.Implementation.Fusing
                 _stage = stage;
                 _monitor = monitor;
 
-                SetHandler(stage.In, this);
-                SetHandler(stage.Out, this);
+                SetHandler(stage.In, stage.Out, this);
             }
 
             public override void OnPush()
@@ -333,22 +463,45 @@ namespace Akka.Streams.Implementation.Fusing
                 _monitor.Value = FlowMonitor.Finished.Instance;
             }
 
+            public override void PostStop()
+            {
+                if (!(_monitor.State is FlowMonitor.Finished) && !(_monitor.State is FlowMonitor.Failed))
+                    _monitor.Value = new FlowMonitor.Failed(new AbruptStageTerminationException(this));
+            }
+
             public override string ToString() => "MonitorFlowLogic";
         }
 
         #endregion
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public MonitorFlow()
         {
             Shape = new FlowShape<T, T>(In, Out);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public Inlet<T> In { get; } = new Inlet<T>("MonitorFlow.in");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public Outlet<T> Out { get; } = new Outlet<T>("MonitorFlow.out");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override FlowShape<T, T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<IFlowMonitor> CreateLogicAndMaterializedValue(Attributes inheritedAttributes)
         {
             var monitor = new FLowMonitorImpl<T>();
@@ -356,9 +509,17 @@ namespace Akka.Streams.Implementation.Fusing
             return new LogicAndMaterializedValue<IFlowMonitor>(logic, monitor);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "MonitorFlow";
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public sealed class TickSource<T> : GraphStageWithMaterializedValue<SourceShape<T>, ICancelable>
     {
         #region internal classes
@@ -420,6 +581,12 @@ namespace Akka.Streams.Implementation.Fusing
         private readonly TimeSpan _interval;
         private readonly T _tick;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="initialDelay">TBD</param>
+        /// <param name="interval">TBD</param>
+        /// <param name="tick">TBD</param>
         public TickSource(TimeSpan initialDelay, TimeSpan interval, T tick)
         {
             _initialDelay = initialDelay;
@@ -428,27 +595,65 @@ namespace Akka.Streams.Implementation.Fusing
             Shape = new SourceShape<T>(Out);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes { get; } = DefaultAttributes.TickSource;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public Outlet<T> Out { get; } = new Outlet<T>("TimerSource.out");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SourceShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         public override ILogicAndMaterializedValue<ICancelable> CreateLogicAndMaterializedValue(Attributes inheritedAttributes)
         {
             var logic = new Logic(this);
             return new LogicAndMaterializedValue<ICancelable>(logic, logic);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => $"TickSource({_initialDelay}, {_interval}, {_tick})";
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public interface IMaterializedValueSource
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         IModule Module { get; }
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         IMaterializedValueSource CopySource();
+        /// <summary>
+        /// TBD
+        /// </summary>
         Outlet Outlet { get; }
+        /// <summary>
+        /// TBD
+        /// </summary>
         StreamLayout.IMaterializedValueNode Computation { get; }
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="result">TBD</param>
         void SetValue(object result);
     }
 
@@ -457,6 +662,8 @@ namespace Akka.Streams.Implementation.Fusing
     /// 
     /// This source is not reusable, it is only created internally.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public sealed class MaterializedValueSource<T> : GraphStage<SourceShape<T>>, IMaterializedValueSource
     {
         #region internal classes
@@ -482,14 +689,25 @@ namespace Akka.Streams.Implementation.Fusing
 
         private static readonly Attributes Name = Attributes.CreateName("matValueSource");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public StreamLayout.IMaterializedValueNode Computation { get; }
 
         Outlet IMaterializedValueSource.Outlet => Outlet;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Outlet<T> Outlet;
 
         private readonly TaskCompletionSource<T> _promise = new TaskCompletionSource<T>();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="computation">TBD</param>
+        /// <param name="outlet">TBD</param>
         public MaterializedValueSource(StreamLayout.IMaterializedValueNode computation, Outlet<T> outlet)
         {
             Computation = computation;
@@ -497,25 +715,56 @@ namespace Akka.Streams.Implementation.Fusing
             Shape = new SourceShape<T>(Outlet);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="computation">TBD</param>
         public MaterializedValueSource(StreamLayout.IMaterializedValueNode computation) : this(computation, new Outlet<T>("matValue")) { }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override Attributes InitialAttributes => Name;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SourceShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="value">TBD</param>
         public void SetValue(T value) => _promise.SetResult(value);
 
         void IMaterializedValueSource.SetValue(object result) => SetValue((T)result);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public MaterializedValueSource<T> CopySource() => new MaterializedValueSource<T>(Computation, Outlet);
 
         IMaterializedValueSource IMaterializedValueSource.CopySource() => CopySource();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => $"MaterializedValueSource({Computation})";
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public sealed class SingleSource<T> : GraphStage<SourceShape<T>>
     {
         #region Internal classes
@@ -540,8 +789,15 @@ namespace Akka.Streams.Implementation.Fusing
 
         private readonly T _element;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Outlet<T> Outlet = new Outlet<T>("single.out");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="element">TBD</param>
         public SingleSource(T element)
         {
             ReactiveStreamsCompliance.RequireNonNullElement(element);
@@ -549,11 +805,23 @@ namespace Akka.Streams.Implementation.Fusing
             Shape = new SourceShape<T>(Outlet);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SourceShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
     public sealed class TaskSource<T> : GraphStage<SourceShape<T>>
     {
         #region Internal classes
@@ -590,8 +858,15 @@ namespace Akka.Streams.Implementation.Fusing
 
         private readonly Task<T> _task;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Outlet<T> Outlet = new Outlet<T>("task.out");
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="task">TBD</param>
         public TaskSource(Task<T> task)
         {
             ReactiveStreamsCompliance.RequireNonNullElement(task);
@@ -599,10 +874,85 @@ namespace Akka.Streams.Implementation.Fusing
             Shape = new SourceShape<T>(Outlet);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public override SourceShape<T> Shape { get; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="inheritedAttributes">TBD</param>
+        /// <returns>TBD</returns>
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString() => "TaskSource";
     }
-}
+
+    /// <summary>
+    /// INTERNAL API
+    /// 
+    /// Discards all received elements.
+    /// </summary>
+    [InternalApi]
+    public sealed class IgnoreSink<T> : GraphStageWithMaterializedValue<SinkShape<T>, Task>
+    {
+        #region Internal classes
+
+        private sealed class Logic : InGraphStageLogic
+        {
+            private readonly IgnoreSink<T> _stage;
+            private readonly TaskCompletionSource<int> _completion;
+
+            public Logic(IgnoreSink<T> stage, TaskCompletionSource<int> completion) : base(stage.Shape)
+            {
+                _stage = stage;
+                _completion = completion;
+
+                SetHandler(stage.Inlet, this);
+            }
+
+            public override void PreStart() => Pull(_stage.Inlet);
+
+            public override void OnPush() => Pull(_stage.Inlet);
+
+            public override void OnUpstreamFinish()
+            {
+                base.OnUpstreamFinish();
+                _completion.TrySetResult(0);
+            }
+
+            public override void OnUpstreamFailure(Exception e)
+            {
+                base.OnUpstreamFailure(e);
+                _completion.TrySetException(e);
+            }
+        }
+
+        #endregion
+
+        public IgnoreSink()
+        {
+            Shape = new SinkShape<T>(Inlet);
+        }
+
+        protected override Attributes InitialAttributes { get; } = DefaultAttributes.IgnoreSink;
+
+        public Inlet<T> Inlet { get; } = new Inlet<T>("Ignore.in");
+
+        public override SinkShape<T> Shape { get; }
+
+        public override ILogicAndMaterializedValue<Task> CreateLogicAndMaterializedValue(Attributes inheritedAttributes)
+        {
+            var completion = new TaskCompletionSource<int>();
+            var logic = new Logic(this, completion);
+            return new LogicAndMaterializedValue<Task>(logic, completion.Task);
+        }
+
+        public override string ToString() => "IgnoreSink";
+    }
+};

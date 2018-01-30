@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using Akka.Cluster.Tests.MultiNode;
@@ -38,59 +39,17 @@ namespace Akka.Cluster.TestKit
         }
     }
 
-    class ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode1 : ClientDowningNodeThatIsUpSpec
+    class ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode : ClientDowningNodeThatIsUpSpec
     {
-        public ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode1() : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode2 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode2() : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode3 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode3() : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode4 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode4() : base(true)
+        public ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode() : base(true, typeof(ClientDowningNodeThatIsUpWithFailureDetectorPuppetMultiNode))
         {
         }
     }
 
 
-    class ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode1 : ClientDowningNodeThatIsUpSpec
+    class ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode : ClientDowningNodeThatIsUpSpec
     {
-        public ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode1() : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode2 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode2() : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode3 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode3() : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode4 : ClientDowningNodeThatIsUpSpec
-    {
-        public ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode4() : base(false)
+        public ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode() : base(false, typeof(ClientDowningNodeThatIsUpWithAccrualFailureDetectorMultiNode))
         {
         }
     }
@@ -99,13 +58,13 @@ namespace Akka.Cluster.TestKit
     {
         private readonly ClientDowningNodeThatIsUpMultiNodeConfig _config;
 
-        protected ClientDowningNodeThatIsUpSpec(bool failureDetectorPuppet)
-            : this(new ClientDowningNodeThatIsUpMultiNodeConfig(failureDetectorPuppet))
+        protected ClientDowningNodeThatIsUpSpec(bool failureDetectorPuppet, Type type)
+            : this(new ClientDowningNodeThatIsUpMultiNodeConfig(failureDetectorPuppet), type)
         {
         }
 
-        protected ClientDowningNodeThatIsUpSpec(ClientDowningNodeThatIsUpMultiNodeConfig config)
-            : base(config)
+        protected ClientDowningNodeThatIsUpSpec(ClientDowningNodeThatIsUpMultiNodeConfig config, Type type)
+            : base(config, type)
         {
             _config = config;
         }

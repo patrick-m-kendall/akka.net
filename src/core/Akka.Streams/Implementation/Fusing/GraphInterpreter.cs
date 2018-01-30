@@ -7,9 +7,11 @@
 
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using Akka.Actor;
+using Akka.Annotations;
 using Akka.Event;
 using Akka.Streams.Stage;
 using Akka.Streams.Util;
@@ -94,6 +96,7 @@ namespace Akka.Streams.Implementation.Fusing
     /// edge of a balance is pulled, dissolving the original cycle).
     ///
     /// </summary>
+    [InternalApi]
     public sealed class GraphInterpreter
     {
         #region internal classes
@@ -104,21 +107,42 @@ namespace Akka.Streams.Implementation.Fusing
         /// </summary>
         public sealed class Empty
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
             public static readonly Empty Instance = new Empty();
 
             private Empty()
             {
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <returns>TBD</returns>
             public override string ToString() => "Empty";
         }
 
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public sealed class Failed
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
             public readonly Exception Reason;
+            /// <summary>
+            /// TBD
+            /// </summary>
             public readonly object PreviousElement;
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="reason">TBD</param>
+            /// <param name="previousElement">TBD</param>
             public Failed(Exception reason, object previousElement)
             {
                 Reason = reason;
@@ -126,19 +150,37 @@ namespace Akka.Streams.Implementation.Fusing
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public abstract class UpstreamBoundaryStageLogic : GraphStageLogic
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
             public abstract Outlet Out { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             protected UpstreamBoundaryStageLogic() : base(inCount: 0, outCount: 1)
             {
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public abstract class DownstreamBoundaryStageLogic : GraphStageLogic
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
             public abstract Inlet In { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             protected DownstreamBoundaryStageLogic() : base(inCount: 1, outCount: 0)
             {
             }
@@ -150,8 +192,12 @@ namespace Akka.Streams.Implementation.Fusing
         /// Contains all the necessary information for the GraphInterpreter to be able to implement a connection
         /// between an output and input ports.
         /// </summary>
+        [InternalApi]
         public sealed class Connection
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
             /// <param name="id">Identifier of the connection. Corresponds to the array slot in the <see cref="GraphAssembly"/></param>
             /// <param name="inOwnerId">Identifier of the owner of the input side of the connection. Corresponds to the array slot in the <see cref="GraphAssembly"/></param>
             /// <param name="inOwner">The stage logic that corresponds to the input side of the connection.</param>
@@ -171,49 +217,128 @@ namespace Akka.Streams.Implementation.Fusing
                 OutHandler = outHandler;
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public int Id { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public int InOwnerId { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public GraphStageLogic InOwner { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public int OutOwnerId { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public GraphStageLogic OutOwner { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public IInHandler InHandler { get; set; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public IOutHandler OutHandler { get; set; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public int PortState { get; set; } = InReady;
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public object Slot { get; set; } = Empty.Instance;
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <returns>TBD</returns>
             public override string ToString() => $"Connection({Id}, {PortState}, {Slot}, {InHandler}, {OutHandler})";
         }
 
         #endregion
 
-        public static readonly bool IsDebug = false;
+        /// <summary>
+        /// TBD
+        /// </summary>
+        public const bool IsDebug = false;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const Connection NoEvent = null;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int Boundary = -1;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int InReady = 1;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int Pulling = 1 << 1;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int Pushing = 1 << 2;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int OutReady = 1 << 3;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int InClosed = 1 << 4;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int OutClosed = 1 << 5;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int InFailed = 1 << 6;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int PullStartFlip = InReady | Pulling;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int PullEndFlip = Pulling | OutReady;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int PushStartFlip = Pushing | OutReady;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int PushEndFlip = InReady | Pushing;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int KeepGoingFlag = 0x4000000;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public const int KeepGoingMask = 0x3ffffff;
 
         // Using an Object-array avoids holding on to the GraphInterpreter class
@@ -221,6 +346,10 @@ namespace Akka.Streams.Implementation.Fusing
         // class should be unloaded.
         private static readonly ThreadLocal<object[]> CurrentInterpreter = new ThreadLocal<object[]>(() => new object[1]);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <exception cref="InvalidOperationException">TBD</exception>
         public static GraphInterpreter Current
         {
             get
@@ -231,21 +360,54 @@ namespace Akka.Streams.Implementation.Fusing
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static GraphInterpreter CurrentInterpreterOrNull => (GraphInterpreter) CurrentInterpreter.Value[0];
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public static readonly Attributes[] SingleNoAttribute = {Attributes.None};
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly GraphStageLogic[] Logics;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly GraphAssembly Assembly;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly IMaterializer Materializer;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly ILoggingAdapter Log;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Connection[] Connections;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly Action<GraphStageLogic, object, Action<object>> OnAsyncInput;
+        /// <summary>
+        /// TBD
+        /// </summary>
         public readonly bool FuzzingMode;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         public IActorRef Context { get; }
 
         // The number of currently running stages. Once this counter reaches zero, the interpreter is considered to be completed.
+        /// <summary>
+        /// TBD
+        /// </summary>
         public int RunningStagesCount;
 
         //Counts how many active connections a stage has. Once it reaches zero, the stage is automatically stopped.
@@ -262,15 +424,26 @@ namespace Akka.Streams.Implementation.Fusing
         private Connection _chasedPush = NoEvent;
         private Connection _chasedPull = NoEvent;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="assembly">TBD</param>
+        /// <param name="materializer">TBD</param>
+        /// <param name="log">TBD</param>
+        /// <param name="logics">TBD</param>
+        /// <param name="connections">TBD</param>
+        /// <param name="onAsyncInput">TBD</param>
+        /// <param name="fuzzingMode">TBD</param>
+        /// <param name="context">TBD</param>
         public GraphInterpreter(
-            GraphAssembly assembly,
-            IMaterializer materializer,
-            ILoggingAdapter log,
-            GraphStageLogic[] logics,
-            Connection[] connections,
-            Action<GraphStageLogic, object, Action<object>> onAsyncInput,
-            bool fuzzingMode,
-            IActorRef context)
+                    GraphAssembly assembly,
+                    IMaterializer materializer,
+                    ILoggingAdapter log,
+                    GraphStageLogic[] logics,
+                    Connection[] connections,
+                    Action<GraphStageLogic, object, Action<object>> onAsyncInput,
+                    bool fuzzingMode,
+                    IActorRef context)
         {
             Logics = logics;
             Assembly = assembly;
@@ -296,8 +469,14 @@ namespace Akka.Streams.Implementation.Fusing
 
         private int ChaseLimit => FuzzingMode ? 0 : 16;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal GraphStageLogic ActiveStage { get; private set; }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal IMaterializer SubFusingMaterializer { get; private set; }
 
         private string QueueStatus()
@@ -307,12 +486,17 @@ namespace Akka.Streams.Implementation.Fusing
         }
 
         private string _name;
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal string Name => _name ?? (_name = GetHashCode().ToString("x"));
 
         /// <summary>
         /// Assign the boundary logic to a given connection. This will serve as the interface to the external world
         /// (outside the interpreter) to process and inject events.
         /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="logic">TBD</param>
         public void AttachUpstreamBoundary(Connection connection, UpstreamBoundaryStageLogic logic)
         {
             logic.PortToConn[logic.Out.Id + logic.InCount] = connection;
@@ -320,6 +504,11 @@ namespace Akka.Streams.Implementation.Fusing
             connection.OutHandler = (IOutHandler) logic.Handlers[0];
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="logic">TBD</param>
         public void AttachUpstreamBoundary(int connection, UpstreamBoundaryStageLogic logic)
             => AttachUpstreamBoundary(Connections[connection], logic);
 
@@ -327,6 +516,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// Assign the boundary logic to a given connection. This will serve as the interface to the external world
         /// (outside the interpreter) to process and inject events.
         /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="logic">TBD</param>
         public void AttachDownstreamBoundary(Connection connection, DownstreamBoundaryStageLogic logic)
         {
             logic.PortToConn[logic.In.Id] = connection;
@@ -334,12 +525,19 @@ namespace Akka.Streams.Implementation.Fusing
             connection.InHandler = (IInHandler) logic.Handlers[0];
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="logic">TBD</param>
         public void AttachDownstreamBoundary(int connection, DownstreamBoundaryStageLogic logic)
             => AttachDownstreamBoundary(Connections[connection], logic);
 
         /// <summary>
         /// Dynamic handler changes are communicated from a GraphStageLogic by this method.
         /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="handler">TBD</param>
         public void SetHandler(Connection connection, IInHandler handler)
         {
             if (IsDebug) Console.WriteLine($"{Name} SETHANDLER {OutOwnerName(connection)} (in) {handler}");
@@ -349,6 +547,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Dynamic handler changes are communicated from a GraphStageLogic by this method.
         /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="handler">TBD</param>
         public void SetHandler(Connection connection, IOutHandler handler)
         {
             if (IsDebug) Console.WriteLine($"{Name} SETHANDLER {OutOwnerName(connection)} (out) {handler}");
@@ -372,6 +572,7 @@ namespace Akka.Streams.Implementation.Fusing
         /// such materializer is available, passing in null will reuse the normal
         /// materializer for the GraphInterpreter—fusing is only an optimization.
         /// </summary>
+        /// <param name="subMaterializer">TBD</param>
         public void Init(IMaterializer subMaterializer)
         {
             SubFusingMaterializer = subMaterializer ?? Materializer;
@@ -438,6 +639,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Executes pending events until the given limit is met. If there were remaining events, <see cref="IsSuspended"/> will return true.
         /// </summary>
+        /// <param name="eventLimit">TBD</param>
+        /// <returns>TBD</returns>
         public int Execute(int eventLimit)
         {
             if (IsDebug)
@@ -573,8 +776,14 @@ namespace Akka.Streams.Implementation.Fusing
             }
 
         }
-        
 
+
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="logic">TBD</param>
+        /// <param name="evt">TBD</param>
+        /// <param name="handler">TBD</param>
         public void RunAsyncInput(GraphStageLogic logic, object evt, Action<object> handler)
         {
             if (!IsStageCompleted(logic))
@@ -658,17 +867,19 @@ namespace Akka.Streams.Implementation.Fusing
             }
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ProcessPush(Connection connection)
         {
-            if (IsDebug) Console.WriteLine($"{Name} PUSH {OutOwnerName(connection)} -> {InOwnerName(connection)},  {connection.Slot} ({connection.InHandler}) [{InLogicName(connection)}]");
+            //if (IsDebug) Console.WriteLine($"{Name} PUSH {OutOwnerName(connection)} -> {InOwnerName(connection)},  {connection.Slot} ({connection.InHandler}) [{InLogicName(connection)}]");
             ActiveStage = connection.InOwner;
             connection.PortState ^= PushEndFlip;
             connection.InHandler.OnPush();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ProcessPull(Connection connection)
         {
-            if (IsDebug) Console.WriteLine($"{Name} PULL {InOwnerName(connection)} -> {OutOwnerName(connection)}, ({connection.OutHandler}) [{OutLogicName(connection)}]");
+            //if (IsDebug) Console.WriteLine($"{Name} PULL {InOwnerName(connection)} -> {OutOwnerName(connection)}, ({connection.OutHandler}) [{OutLogicName(connection)}]");
             ActiveStage = connection.OutOwner;
             connection.PortState ^= PullEndFlip;
             connection.OutHandler.OnPull();
@@ -690,6 +901,12 @@ namespace Akka.Streams.Implementation.Fusing
             return element;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <exception cref="Exception">TBD</exception>
+        /// <returns>TBD</returns>
         public void Enqueue(Connection connection)
         {
             if (IsDebug && _queueTail - _queueHead > _mask) throw new Exception($"{Name} internal queue full ({QueueStatus()}) + {connection}");
@@ -697,6 +914,10 @@ namespace Akka.Streams.Implementation.Fusing
             _queueTail++;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="logic">TBD</param>
         internal void AfterStageHasRun(GraphStageLogic logic)
         {
             if (IsStageCompleted(logic))
@@ -709,6 +930,8 @@ namespace Akka.Streams.Implementation.Fusing
         /// <summary>
         /// Returns true if the given stage is already completed
         /// </summary>
+        /// <param name="stage">TBD</param>
+        /// <returns>TBD</returns>
         internal bool IsStageCompleted(GraphStageLogic stage) => stage != null && _shutdownCounter[stage.StageId] == 0;
 
         /// <summary>
@@ -724,6 +947,11 @@ namespace Akka.Streams.Implementation.Fusing
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="logic">TBD</param>
+        /// <param name="enabled">TBD</param>
         internal void SetKeepGoing(GraphStageLogic logic, bool enabled)
         {
             if (enabled)
@@ -746,6 +974,10 @@ namespace Akka.Streams.Implementation.Fusing
             }
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
         internal void ChasePush(Connection connection)
         {
             if (_chaseCounter > 0 && _chasedPush == NoEvent)
@@ -757,6 +989,10 @@ namespace Akka.Streams.Implementation.Fusing
                 Enqueue(connection);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
         internal void ChasePull(Connection connection)
         {
             if (_chaseCounter > 0 && _chasedPull == NoEvent)
@@ -768,6 +1004,10 @@ namespace Akka.Streams.Implementation.Fusing
                 Enqueue(connection);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
         internal void Complete(Connection connection)
         {
             var currentState = connection.PortState;
@@ -787,6 +1027,11 @@ namespace Akka.Streams.Implementation.Fusing
                 CompleteConnection(connection.OutOwnerId);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
+        /// <param name="reason">TBD</param>
         internal void Fail(Connection connection, Exception reason)
         {
             var currentState = connection.PortState;
@@ -811,6 +1056,10 @@ namespace Akka.Streams.Implementation.Fusing
                 CompleteConnection(connection.OutOwnerId);
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="connection">TBD</param>
         internal void Cancel(Connection connection)
         {
             var currentState = connection.PortState;
@@ -842,6 +1091,10 @@ namespace Akka.Streams.Implementation.Fusing
         /// </summary>
         public void DumpWaits() => Console.WriteLine(this);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <returns>TBD</returns>
         public override string ToString()
         {
             var builder = new StringBuilder("digraph waits {\n");

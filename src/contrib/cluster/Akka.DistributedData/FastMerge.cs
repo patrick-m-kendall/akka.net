@@ -5,6 +5,8 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using Akka.Annotations;
+
 namespace Akka.DistributedData
 {
     /// <summary>
@@ -23,13 +25,21 @@ namespace Akka.DistributedData
     /// i.e. if used outside the Replicator infrastructure, but the worst thing that can happen is that
     /// a full merge is performed instead of the fast forward merge.
     /// </summary>
+    /// <typeparam name="T">TBD</typeparam>
+    [InternalApi]
     public abstract class FastMerge<T> : IReplicatedData<T> where T : FastMerge<T>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
         internal FastMerge<T> Ancestor = null;
 
         /// <summary>
         /// INTERNAL API: should be called from "updating" methods
         /// </summary>
+        /// <param name="newData">TBD</param>
+        /// <returns>TBD</returns>
+        [InternalApi]
         protected T AssignAncestor(T newData)
         {
             newData.Ancestor = Ancestor ?? this;
@@ -40,19 +50,34 @@ namespace Akka.DistributedData
         /// <summary>
         /// INTERNAL API: should be used from merge
         /// </summary>
+        /// <param name="newData">TBD</param>
+        /// <returns>TBD</returns>
+        [InternalApi]
         protected bool IsAncestorOf(T newData) => ReferenceEquals(newData.Ancestor, this);
 
         /// <summary>
         /// INTERNAL API: should be called from merge 
         /// </summary>
+        /// <returns>TBD</returns>
+        [InternalApi]
         protected T ClearAncestor()
         {
             Ancestor = null;
             return (T)this;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public abstract T Merge(T other);
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="other">TBD</param>
+        /// <returns>TBD</returns>
         public IReplicatedData Merge(IReplicatedData other) => Merge((T)other);
     }
 }

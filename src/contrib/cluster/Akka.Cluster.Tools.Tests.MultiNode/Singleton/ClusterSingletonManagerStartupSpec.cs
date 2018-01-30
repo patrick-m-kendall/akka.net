@@ -40,11 +40,7 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
         }
     }
 
-    public class ClusterSingletonManagerStartupNode1 : ClusterSingletonManagerStartupSpec { }
-    public class ClusterSingletonManagerStartupNode2 : ClusterSingletonManagerStartupSpec { }
-    public class ClusterSingletonManagerStartupNode3 : ClusterSingletonManagerStartupSpec { }
-
-    public abstract class ClusterSingletonManagerStartupSpec : MultiNodeClusterSpec
+    public class ClusterSingletonManagerStartupSpec : MultiNodeClusterSpec
     {
         private class Echo : ReceiveActor
         {
@@ -56,12 +52,12 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
 
         private readonly ClusterSingletonManagerStartupConfig _config;
 
-        protected ClusterSingletonManagerStartupSpec() : this(new ClusterSingletonManagerStartupConfig())
+        public ClusterSingletonManagerStartupSpec() : this(new ClusterSingletonManagerStartupConfig())
         {
 
         }
 
-        protected ClusterSingletonManagerStartupSpec(ClusterSingletonManagerStartupConfig config) : base(config)
+        protected ClusterSingletonManagerStartupSpec(ClusterSingletonManagerStartupConfig config) : base(config, typeof(ClusterSingletonManagerStartupSpec))
         {
             _config = config;
             EchoProxy = new Lazy<IActorRef>(() => Sys.ActorOf(ClusterSingletonProxy.Props(

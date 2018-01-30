@@ -18,12 +18,46 @@ namespace Akka.Persistence.Journal
 {
     using Messages = IDictionary<string, LinkedList<IPersistentRepresentation>>;
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public interface IMemoryMessages
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="persistent">TBD</param>
+        /// <returns>TBD</returns>
         Messages Add(IPersistentRepresentation persistent);
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="seqNr">TBD</param>
+        /// <param name="updater">TBD</param>
+        /// <returns>TBD</returns>
         Messages Update(string pid, long seqNr, Func<IPersistentRepresentation, IPersistentRepresentation> updater);
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="seqNr">TBD</param>
+        /// <returns>TBD</returns>
         Messages Delete(string pid, long seqNr);
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="fromSeqNr">TBD</param>
+        /// <param name="toSeqNr">TBD</param>
+        /// <param name="max">TBD</param>
+        /// <returns>TBD</returns>
         IEnumerable<IPersistentRepresentation> Read(string pid, long fromSeqNr, long toSeqNr, long max);
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <returns>TBD</returns>
         long HighestSequenceNr(string pid);
     }
 
@@ -35,8 +69,16 @@ namespace Akka.Persistence.Journal
         private readonly ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>> _messages = new ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>>();
         private readonly ConcurrentDictionary<string, long> _meta = new ConcurrentDictionary<string, long>();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected virtual ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>> Messages { get { return _messages; } }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="messages">TBD</param>
+        /// <returns>TBD</returns>
         protected override Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
             foreach (var w in messages)
@@ -49,12 +91,27 @@ namespace Akka.Persistence.Journal
             return Task.FromResult((IImmutableList<Exception>) null); // all good
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="fromSequenceNr">TBD</param>
+        /// <returns>TBD</returns>
         public override Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
         {
-            long metaSeqNr;
-            return Task.FromResult(Math.Max(HighestSequenceNr(persistenceId), _meta.TryGetValue(persistenceId, out metaSeqNr) ? metaSeqNr : 0L));
+            return Task.FromResult(Math.Max(HighestSequenceNr(persistenceId), _meta.TryGetValue(persistenceId, out long metaSeqNr) ? metaSeqNr : 0L));
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="context">TBD</param>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="fromSequenceNr">TBD</param>
+        /// <param name="toSequenceNr">TBD</param>
+        /// <param name="max">TBD</param>
+        /// <param name="recoveryCallback">TBD</param>
+        /// <returns>TBD</returns>
         public override Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max,
             Action<IPersistentRepresentation> recoveryCallback)
         {
@@ -64,6 +121,12 @@ namespace Akka.Persistence.Journal
             return Task.FromResult(new object());
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="persistenceId">TBD</param>
+        /// <param name="toSequenceNr">TBD</param>
+        /// <returns>TBD</returns>
         protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             var highestSeqNr = HighestSequenceNr(persistenceId);
@@ -77,6 +140,11 @@ namespace Akka.Persistence.Journal
 
         #region IMemoryMessages implementation
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="persistent">TBD</param>
+        /// <returns>TBD</returns>
         public Messages Add(IPersistentRepresentation persistent)
         {
             var list = Messages.GetOrAdd(persistent.PersistenceId, pid => new LinkedList<IPersistentRepresentation>());
@@ -84,10 +152,16 @@ namespace Akka.Persistence.Journal
             return Messages;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="seqNr">TBD</param>
+        /// <param name="updater">TBD</param>
+        /// <returns>TBD</returns>
         public Messages Update(string pid, long seqNr, Func<IPersistentRepresentation, IPersistentRepresentation> updater)
         {
-            LinkedList<IPersistentRepresentation> persistents;
-            if (Messages.TryGetValue(pid, out persistents))
+            if (Messages.TryGetValue(pid, out LinkedList<IPersistentRepresentation> persistents))
             {
                 var node = persistents.First;
                 while (node != null)
@@ -99,13 +173,18 @@ namespace Akka.Persistence.Journal
                 }
             }
 
-            return _messages;
+            return Messages;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="seqNr">TBD</param>
+        /// <returns>TBD</returns>
         public Messages Delete(string pid, long seqNr)
         {
-            LinkedList<IPersistentRepresentation> persistents;
-            if (Messages.TryGetValue(pid, out persistents))
+            if (Messages.TryGetValue(pid, out LinkedList<IPersistentRepresentation> persistents))
             {
                 var node = persistents.First;
                 while (node != null)
@@ -120,10 +199,17 @@ namespace Akka.Persistence.Journal
             return Messages;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <param name="fromSeqNr">TBD</param>
+        /// <param name="toSeqNr">TBD</param>
+        /// <param name="max">TBD</param>
+        /// <returns>TBD</returns>
         public IEnumerable<IPersistentRepresentation> Read(string pid, long fromSeqNr, long toSeqNr, long max)
         {
-            LinkedList<IPersistentRepresentation> persistents;
-            if (Messages.TryGetValue(pid, out persistents))
+            if (Messages.TryGetValue(pid, out LinkedList<IPersistentRepresentation> persistents))
             {
                 return persistents
                     .Where(x => x.SequenceNr >= fromSeqNr && x.SequenceNr <= toSeqNr)
@@ -133,13 +219,17 @@ namespace Akka.Persistence.Journal
             return Enumerable.Empty<IPersistentRepresentation>();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="pid">TBD</param>
+        /// <returns>TBD</returns>
         public long HighestSequenceNr(string pid)
         {
-            LinkedList<IPersistentRepresentation> persistents;
-            if (Messages.TryGetValue(pid, out persistents))
+            if (Messages.TryGetValue(pid, out LinkedList<IPersistentRepresentation> persistents))
             {
                 var last = persistents.LastOrDefault();
-                return last != null ? last.SequenceNr : 0L;
+                return last?.SequenceNr ?? 0L;
             }
 
             return 0L;
@@ -148,10 +238,16 @@ namespace Akka.Persistence.Journal
         #endregion
     }
 
+    /// <summary>
+    /// TBD
+    /// </summary>
     public class SharedMemoryJournal : MemoryJournal
     {
         private static readonly ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>> SharedMessages = new ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>>();
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override ConcurrentDictionary<string, LinkedList<IPersistentRepresentation>> Messages { get { return SharedMessages; } }
     }
 }

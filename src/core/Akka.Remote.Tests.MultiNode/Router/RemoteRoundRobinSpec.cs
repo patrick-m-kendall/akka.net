@@ -56,20 +56,15 @@ namespace Akka.Remote.Tests.MultiNode.Router
         }
     }
 
-    public class RemoteRoundRobinMultiNode1 : RemoteRoundRobinSpec { }
-    public class RemoteRoundRobinMultiNode2 : RemoteRoundRobinSpec { }
-    public class RemoteRoundRobinMultiNode3 : RemoteRoundRobinSpec { }
-    public class RemoteRoundRobinMultiNode4 : RemoteRoundRobinSpec { }
-
-    public abstract class RemoteRoundRobinSpec : MultiNodeSpec
+    public class RemoteRoundRobinSpec : MultiNodeSpec
     {
         private readonly RoundRobinMultiNodeConfig _config;
 
-        protected RemoteRoundRobinSpec() : this(new RoundRobinMultiNodeConfig())
+        public RemoteRoundRobinSpec() : this(new RoundRobinMultiNodeConfig())
         {
         }
 
-        protected RemoteRoundRobinSpec(RoundRobinMultiNodeConfig config) : base(config)
+        protected RemoteRoundRobinSpec(RoundRobinMultiNodeConfig config) : base(config, typeof(RemoteRoundRobinSpec))
         {
             _config = config;
         }

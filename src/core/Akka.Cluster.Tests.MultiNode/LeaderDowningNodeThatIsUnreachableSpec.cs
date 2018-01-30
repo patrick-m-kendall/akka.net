@@ -25,7 +25,7 @@ namespace Akka.Cluster.Tests.MultiNode
         public RoleName Third { get; private set; }
         public RoleName Fourth { get; private set; }
 
-        public LeaderDowningNodeThatIsUnreachableConfig(bool failureDectectorPuppet)
+        public LeaderDowningNodeThatIsUnreachableConfig(bool failureDetectorPuppet)
         {
             First = Role("first");
             Second = Role("second");
@@ -34,62 +34,20 @@ namespace Akka.Cluster.Tests.MultiNode
 
             CommonConfig = DebugConfig(false)
                 .WithFallback(ConfigurationFactory.ParseString(@"akka.cluster.auto-down-unreachable-after = 2s"))
-                .WithFallback(MultiNodeClusterSpec.ClusterConfig(failureDectectorPuppet));
+                .WithFallback(MultiNodeClusterSpec.ClusterConfig(failureDetectorPuppet));
         }
     }
 
-    public class LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode1 : LeaderDowningNodeThatIsUnreachableSpec
+    public class LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode : LeaderDowningNodeThatIsUnreachableSpec
     {
-        public LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode1() : base(true)
+        public LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode() : base(true, typeof(LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode))
         {
         }
     }
 
-    public class LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode2 : LeaderDowningNodeThatIsUnreachableSpec
+    public class LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode : LeaderDowningNodeThatIsUnreachableSpec
     {
-        public LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode2() : base(true)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode3 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode3() : base(true)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode4 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode4() : base(true)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode1 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode1() : base(false)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode2 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode2() : base(false)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode3 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode3() : base(false)
-        {
-        }
-    }
-
-    public class LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode4 : LeaderDowningNodeThatIsUnreachableSpec
-    {
-        public LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode4() : base(false)
+        public LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode() : base(false, typeof(LeaderDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode))
         {
         }
     }
@@ -98,14 +56,14 @@ namespace Akka.Cluster.Tests.MultiNode
     {
         private readonly LeaderDowningNodeThatIsUnreachableConfig _config;
 
-        protected LeaderDowningNodeThatIsUnreachableSpec(bool failureDetectorPuppet)
-            : this(new LeaderDowningNodeThatIsUnreachableConfig(failureDetectorPuppet))
+        protected LeaderDowningNodeThatIsUnreachableSpec(bool failureDetectorPuppet, Type type)
+            : this(new LeaderDowningNodeThatIsUnreachableConfig(failureDetectorPuppet), type)
         {
 
         }
 
-        protected LeaderDowningNodeThatIsUnreachableSpec(LeaderDowningNodeThatIsUnreachableConfig config)
-            : base(config)
+        protected LeaderDowningNodeThatIsUnreachableSpec(LeaderDowningNodeThatIsUnreachableConfig config, Type type)
+            : base(config, type)
         {
             _config = config;
             MuteMarkingAsUnreachable();

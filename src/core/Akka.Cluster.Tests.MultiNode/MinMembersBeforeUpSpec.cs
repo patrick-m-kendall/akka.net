@@ -17,6 +17,8 @@ using Akka.TestKit;
 
 namespace Akka.Cluster.Tests.MultiNode
 {
+    #region Member.Up
+
     public class MinMembersBeforeUpSpecConfig : MultiNodeConfig
     {
         public readonly RoleName First;
@@ -63,21 +65,13 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class MinMembersBeforeUpNode1 : MinMembersBeforeUpSpec { }
-    public class MinMembersBeforeUpNode2 : MinMembersBeforeUpSpec { }
-    public class MinMembersBeforeUpNode3 : MinMembersBeforeUpSpec { }
-
-    public class MinMembersOfRoleBeforeUpNode1 : MinMembersOfRoleBeforeUpSpec { }
-    public class MinMembersOfRoleBeforeUpNode2 : MinMembersOfRoleBeforeUpSpec { }
-    public class MinMembersOfRoleBeforeUpNode3 : MinMembersOfRoleBeforeUpSpec { }
-
-    public abstract class MinMembersBeforeUpSpec : MinMembersBeforeUpBase
+    public class MinMembersBeforeUpSpec : MinMembersBeforeUpBase
     {
-        protected MinMembersBeforeUpSpec() : this(new MinMembersBeforeUpSpecConfig())
+        public MinMembersBeforeUpSpec() : this(new MinMembersBeforeUpSpecConfig())
         {
         }
 
-        protected MinMembersBeforeUpSpec(MinMembersBeforeUpSpecConfig config) : base(config)
+        protected MinMembersBeforeUpSpec(MinMembersBeforeUpSpecConfig config) : base(config, typeof(MinMembersBeforeUpSpec))
         {
             First = config.First;
             Second = config.Second;
@@ -91,13 +85,62 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public abstract class MinMembersOfRoleBeforeUpSpec : MinMembersBeforeUpBase
+    #endregion
+
+    #region Member.WeaklyUp
+
+    public class MinMembersBeforeUpWithWeaklyUpSpecConfig : MultiNodeConfig
     {
-        protected MinMembersOfRoleBeforeUpSpec() : this(new MinMembersOfRoleBeforeUpSpecConfig())
+        public readonly RoleName First;
+        public readonly RoleName Second;
+        public readonly RoleName Third;
+
+        public MinMembersBeforeUpWithWeaklyUpSpecConfig()
+        {
+            First = Role("first");
+            Second = Role("second");
+            Third = Role("third");
+
+            CommonConfig = ConfigurationFactory.ParseString(@"
+                akka.cluster.min-nr-of-members = 3
+                akka.cluster.allow-weakly-up-members = on
+            ").WithFallback(MultiNodeClusterSpec.ClusterConfigWithFailureDetectorPuppet());
+        }
+    }
+    public class MinMembersBeforeUpWithWeaklyUpNode1 : MinMembersBeforeUpWithWeaklyUpSpec { }
+    public class MinMembersBeforeUpWithWeaklyUpNode2 : MinMembersBeforeUpWithWeaklyUpSpec { }
+    public class MinMembersBeforeUpWithWeaklyUpNode3 : MinMembersBeforeUpWithWeaklyUpSpec { }
+
+    public abstract class MinMembersBeforeUpWithWeaklyUpSpec : MinMembersBeforeUpBase
+    {
+        protected MinMembersBeforeUpWithWeaklyUpSpec() : this(new MinMembersBeforeUpWithWeaklyUpSpecConfig())
         {
         }
 
-        protected MinMembersOfRoleBeforeUpSpec(MinMembersOfRoleBeforeUpSpecConfig config) : base(config)
+        protected MinMembersBeforeUpWithWeaklyUpSpec(MinMembersBeforeUpWithWeaklyUpSpecConfig config) 
+            : base(config, typeof(MinMembersBeforeUpWithWeaklyUpSpec))
+        {
+            First = config.First;
+            Second = config.Second;
+            Third = config.Third;
+        }
+
+        [MultiNodeFact]
+        public void Cluster_leader_must_wait_with_moving_members_to_up_until_minimum_number_of_members_have_joined_with_WeaklyUp_enabled()
+        {
+            TestWaitMovingMembersToUp();
+        }
+    }
+
+    #endregion
+
+    public class MinMembersOfRoleBeforeUpSpec : MinMembersBeforeUpBase
+    {
+        public MinMembersOfRoleBeforeUpSpec() : this(new MinMembersOfRoleBeforeUpSpecConfig())
+        {
+        }
+
+        protected MinMembersOfRoleBeforeUpSpec(MinMembersOfRoleBeforeUpSpecConfig config) : base(config, typeof(MinMembersOfRoleBeforeUpSpec))
         {
             First = config.First;
             Second = config.Second;
@@ -117,7 +160,7 @@ namespace Akka.Cluster.Tests.MultiNode
         protected RoleName Second;
         protected RoleName Third;
 
-        protected MinMembersBeforeUpBase(MultiNodeConfig config) : base(config)
+        protected MinMembersBeforeUpBase(MultiNodeConfig config, Type type) : base(config, type)
         {
         }
 

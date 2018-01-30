@@ -52,11 +52,14 @@ namespace Akka.Cluster.TestKit
                     periodic-tasks-initial-delay        = 300 ms
                     publish-stats-interval              = 0 s # always, when it happens
                     failure-detector.heartbeat-interval = 500 ms
+                    run-coordinated-shutdown-when-down = off
                 }
                 akka.loglevel = INFO
                 akka.log-dead-letters = off
                 akka.log-dead-letters-during-shutdown = off
                 #akka.remote.log-remote-lifecycle-events = off
+                akka.coordinated-shutdown.run-by-clr-shutdown-hook = off
+                akka.coordinated-shutdown.terminate-actor-system = off
                 #akka.loggers = [""Akka.TestKit.TestEventListener, Akka.TestKit""]
                 akka.test {
                     single-expect-default = 15 s
@@ -145,8 +148,8 @@ namespace Akka.Cluster.TestKit
 
         readonly ITestKitAssertions _assertions;
 
-        protected MultiNodeClusterSpec(MultiNodeConfig config)
-            : base(config)
+        protected MultiNodeClusterSpec(MultiNodeConfig config, Type type)
+            : base(config, type)
         {
             _assertions = new XunitAssertions();
             _roleNameComparer = new RoleNameComparer(this);
@@ -220,8 +223,7 @@ namespace Akka.Cluster.TestKit
 
         public Address GetAddress(RoleName role)
         {
-            Address address;
-            if (!_cachedAddresses.TryGetValue(role, out address))
+            if (!_cachedAddresses.TryGetValue(role, out var address))
             {
                 address = Node(role).Address;
                 _cachedAddresses.TryAdd(role, address);
@@ -249,7 +251,7 @@ namespace Akka.Cluster.TestKit
         }
 
         /// <summary>
-        /// Initialize the cluster of the specified member nodes (<see cref="roles"/>)
+        /// Initialize the cluster of the specified member nodes (<paramref name="roles"/>)
         /// and wait until all joined and <see cref="MemberStatus.Up"/>.
         /// 
         /// First node will be started first and others will join the first.
@@ -360,14 +362,14 @@ namespace Akka.Cluster.TestKit
                     AwaitAssert(() =>
                     {
                         foreach (var a in canNotBePartOfMemberRing)
-                            ClusterView.Members.Select(m => m.Address).Contains(a).ShouldBeFalse();
+                            _assertions.AssertFalse(ClusterView.Members.Select(m => m.Address).Contains(a));
                     });
-                AwaitAssert(() => ClusterView.Members.Count.ShouldBe(numbersOfMembers));
-                AwaitAssert(() => ClusterView.Members.All(m => m.Status == MemberStatus.Up).ShouldBeTrue("All members should be up"));
+                AwaitAssert(() => _assertions.AssertEqual(numbersOfMembers, ClusterView.Members.Count));
+                AwaitAssert(() => _assertions.AssertTrue(ClusterView.Members.All(m => m.Status == MemberStatus.Up), "All members should be up"));
                 // clusterView.leader is updated by LeaderChanged, await that to be updated also
                 var firstMember = ClusterView.Members.FirstOrDefault();
                 var expectedLeader = firstMember == null ? null : firstMember.Address;
-                AwaitAssert(() => ClusterView.Leader.ShouldBe(expectedLeader));
+                AwaitAssert(() => _assertions.AssertEqual(expectedLeader, ClusterView.Leader));
             });
         }
 
@@ -407,6 +409,7 @@ namespace Akka.Cluster.TestKit
                 _spec = spec;
             }
 
+            /// <inheritdoc/>
             public int Compare(RoleName x, RoleName y)
             {
                 return Member.AddressOrdering.Compare(_spec.GetAddress(x), _spec.GetAddress(y));

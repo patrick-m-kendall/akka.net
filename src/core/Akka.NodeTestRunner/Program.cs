@@ -7,14 +7,21 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.IO;
+using Akka.MultiNodeTestRunner.Shared.Sinks;
 using Akka.Remote.TestKit;
 using Xunit;
+#if CORECLR
+using System.Runtime.Loader;
+using Microsoft.Extensions.DependencyModel;
+#endif
 
 namespace Akka.NodeTestRunner
 {
@@ -30,6 +37,7 @@ namespace Akka.NodeTestRunner
         static int Main(string[] args)
         {
             var nodeIndex = CommandLine.GetInt32("multinode.index");
+            var nodeRole = CommandLine.GetProperty("multinode.role");
             var assemblyFileName = CommandLine.GetProperty("multinode.test-assembly");
             var typeName = CommandLine.GetProperty("multinode.test-class");
             var testName = CommandLine.GetProperty("multinode.test-method");
@@ -43,19 +51,31 @@ namespace Akka.NodeTestRunner
             var tcpClient = _logger = system.ActorOf<RunnerTcpClient>();
             system.Tcp().Tell(new Tcp.Connect(listenEndpoint), tcpClient);
 
+#if CORECLR
+            // In NetCore, if the assembly file hasn't been touched, 
+            // XunitFrontController would fail loading external assemblies and its dependencies.
+            AssemblyLoadContext.Default.Resolving += (assemblyLoadContext, assemblyName) => DefaultOnResolving(assemblyLoadContext, assemblyName, assemblyFileName);
+            var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyFileName);
+            DependencyContext.Load(assembly)
+                .CompileLibraries
+                .Where(dep => dep.Name.ToLower()
+                    .Contains(assembly.FullName.Split(new[] { ',' })[0].ToLower()))
+                .Select(dependency => AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(dependency.Name)));
+#endif
+
             Thread.Sleep(TimeSpan.FromSeconds(10));
             using (var controller = new XunitFrontController(AppDomainSupport.IfAvailable, assemblyFileName))
             {
                 /* need to pass in just the assembly name to Discovery, not the full path
                  * i.e. "Akka.Cluster.Tests.MultiNode.dll"
                  * not "bin/Release/Akka.Cluster.Tests.MultiNode.dll" - this will cause
-                 * the Discovery class to actually not find any indivudal specs to run
+                 * the Discovery class to actually not find any individual specs to run
                  */
                 var assemblyName = Path.GetFileName(assemblyFileName);
                 Console.WriteLine("Running specs for {0} [{1}]", assemblyName, assemblyFileName);
                 using (var discovery = new Discovery(assemblyName, typeName))
                 {
-                    using (var sink = new Sink(nodeIndex, tcpClient))
+                    using (var sink = new Sink(nodeIndex, nodeRole, tcpClient))
                     {
                         try
                         {
@@ -65,7 +85,7 @@ namespace Akka.NodeTestRunner
                         }
                         catch (AggregateException ex)
                         {
-                            var specFail = new SpecFail(nodeIndex, displayName);
+                            var specFail = new SpecFail(nodeIndex, nodeRole, displayName);
                             specFail.FailureExceptionTypes.Add(ex.GetType().ToString());
                             specFail.FailureMessages.Add(ex.Message);
                             specFail.FailureStackTraces.Add(ex.StackTrace);
@@ -85,7 +105,7 @@ namespace Akka.NodeTestRunner
                         }
                         catch (Exception ex)
                         {
-                            var specFail = new SpecFail(nodeIndex, displayName);
+                            var specFail = new SpecFail(nodeIndex, nodeRole, displayName);
                             specFail.FailureExceptionTypes.Add(ex.GetType().ToString());
                             specFail.FailureMessages.Add(ex.Message);
                             specFail.FailureStackTraces.Add(ex.StackTrace);
@@ -129,39 +149,47 @@ namespace Akka.NodeTestRunner
                 Console.WriteLine("Exception thrown while waiting for TCP transport to flush - not all messages may have been logged.");
             }
         }
+
+#if CORECLR
+        private static Assembly DefaultOnResolving(AssemblyLoadContext assemblyLoadContext, AssemblyName assemblyName, string assemblyPath)
+        {
+            string dllName = assemblyName.Name.Split(new[] { ',' })[0] + ".dll";
+            return assemblyLoadContext.LoadFromAssemblyPath(Path.Combine(Path.GetDirectoryName(assemblyPath), dllName));
+        }
+#endif
     }
 
-     class RunnerTcpClient : ReceiveActor, IWithUnboundedStash
-     {
-         public RunnerTcpClient()
-         {
-             Become(WaitingForConnection);
-         }
- 
-         private void WaitingForConnection()
-         {
-             Receive<Tcp.Connected>(connected =>
-             {
-                 Sender.Tell(new Tcp.Register(Self));
-                 Become(Connected(Sender));
-             });
-             Receive<string>(_ => Stash.Stash());
-         }
- 
-         private Receive Connected(IActorRef connection)
-         {
-             Stash.UnstashAll();
- 
-             return message =>
-             {
-                 var bytes = ByteString.FromString(message.ToString());
-                 connection.Tell(Tcp.Write.Create(bytes));
- 
-                 return true;
-             };
-         }
- 
-         public IStash Stash { get; set; }
-     }
+    class RunnerTcpClient : ReceiveActor, IWithUnboundedStash
+    {
+        public RunnerTcpClient()
+        {
+            Become(WaitingForConnection);
+        }
+
+        private void WaitingForConnection()
+        {
+            Receive<Tcp.Connected>(connected =>
+            {
+                Sender.Tell(new Tcp.Register(Self));
+                Become(Connected(Sender));
+            });
+            Receive<string>(_ => Stash.Stash());
+        }
+
+        private Receive Connected(IActorRef connection)
+        {
+            Stash.UnstashAll();
+
+            return message =>
+            {
+                var bytes = ByteString.FromString(message.ToString());
+                connection.Tell(Tcp.Write.Create(bytes));
+
+                return true;
+            };
+        }
+
+        public IStash Stash { get; set; }
+    }
 }
 

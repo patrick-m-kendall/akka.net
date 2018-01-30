@@ -65,18 +65,14 @@ namespace Akka.Cluster.Tests.MultiNode.Routing
         }
     }
 
-    public class ClusterConsistentHashingRouterMultiNode1 : ClusterConsistentHashingRouterSpec { }
-    public class ClusterConsistentHashingRouterMultiNode2 : ClusterConsistentHashingRouterSpec { }
-    public class ClusterConsistentHashingRouterMultiNode3 : ClusterConsistentHashingRouterSpec { }
-
-    public abstract class ClusterConsistentHashingRouterSpec : MultiNodeClusterSpec
+    public class ClusterConsistentHashingRouterSpec : MultiNodeClusterSpec
     {
         private readonly ConsistentHashingRouterMultiNodeConfig _config;
         private Lazy<IActorRef> router1;
 
-        protected ClusterConsistentHashingRouterSpec() : this(new ConsistentHashingRouterMultiNodeConfig()) { }
+        public ClusterConsistentHashingRouterSpec() : this(new ConsistentHashingRouterMultiNodeConfig()) { }
 
-        protected ClusterConsistentHashingRouterSpec(ConsistentHashingRouterMultiNodeConfig config) : base(config)
+        protected ClusterConsistentHashingRouterSpec(ConsistentHashingRouterMultiNodeConfig config) : base(config, typeof(ClusterConsistentHashingRouterSpec))
         {
             _config = config;
 

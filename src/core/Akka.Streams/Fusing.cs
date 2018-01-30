@@ -36,15 +36,34 @@ namespace Akka.Streams
         /// implementations based on <see cref="GraphStage{TShape}"/>) and not forbidden
         /// via <see cref="Attributes.AsyncBoundary"/>
         /// </summary>
+        /// <typeparam name="TShape">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
+        /// <param name="graph">TBD</param>
+        /// <returns>TBD</returns>
         public static FusedGraph<TShape, TMat> Aggressive<TShape, TMat>(IGraph<TShape, TMat> graph) where TShape : Shape
             => Implementation.Fusing.Fusing.Aggressive(graph);
+
+
+        /// <summary>
+        /// Return the StructuralInfo for this Graph without any fusing
+        /// </summary>
+        public static StructuralInfoModule StructuralInfo<TShape, TMat>(IGraph<TShape, TMat> graph, Attributes attributes) where TShape : Shape
+            => Implementation.Fusing.Fusing.StructuralInfo(graph, attributes);
 
         /// <summary>
         /// A fused graph of the right shape, containing a <see cref="FusedModule"/> which holds more information 
         /// on the operation structure of the contained stream topology for convenient graph traversal.
         /// </summary>
+        /// <typeparam name="TShape">TBD</typeparam>
+        /// <typeparam name="TMat">TBD</typeparam>
         public sealed class FusedGraph<TShape, TMat> : IGraph<TShape, TMat> where TShape : Shape
         {
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="module">TBD</param>
+            /// <param name="shape">TBD</param>
+            /// <exception cref="ArgumentException">TBD</exception>
             public FusedGraph(FusedModule module, TShape shape)
             {
                 if (module == null) throw new ArgumentNullException(nameof(module));
@@ -54,46 +73,42 @@ namespace Akka.Streams
                 Shape = shape;
             }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public TShape Shape { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
             public IModule Module { get; }
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="attributes">TBD</param>
+            /// <returns>TBD</returns>
             public IGraph<TShape, TMat> WithAttributes(Attributes attributes) => new FusedGraph<TShape, TMat>(Module.WithAttributes(attributes) as FusedModule, Shape);
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="attributes">TBD</param>
+            /// <returns>TBD</returns>
             public IGraph<TShape, TMat> AddAttributes(Attributes attributes) => WithAttributes(Module.Attributes.And(attributes));
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <param name="name">TBD</param>
+            /// <returns>TBD</returns>
             public IGraph<TShape, TMat> Named(string name) => AddAttributes(Attributes.CreateName(name));
 
+            /// <summary>
+            /// TBD
+            /// </summary>
+            /// <returns>TBD</returns>
             public IGraph<TShape, TMat> Async() => AddAttributes(new Attributes(Attributes.AsyncBoundary.Instance));
-        }
-
-        /// <summary>
-        /// When fusing a <see cref="IGraph{TShape}"/> a part of the internal stage wirings are hidden within
-        ///<see cref="GraphAssembly"/> objects that are
-        /// optimized for high-speed execution. This structural information bundle contains
-        /// the wirings in a more accessible form, allowing traversal from port to upstream
-        /// or downstream port and from there to the owning module (or graph vertex).
-        /// </summary>
-        public struct StructuralInfo
-        {
-            public readonly IImmutableDictionary<InPort, OutPort> Upstreams;
-
-            public readonly IImmutableDictionary<OutPort, InPort> Downstreams;
-
-            public readonly IImmutableDictionary<InPort, IModule> InOwners;
-
-            public readonly IImmutableDictionary<OutPort, IModule> OutOwners;
-
-            public readonly IImmutableSet<IModule> AllModules;
-
-            public StructuralInfo(IImmutableDictionary<InPort, OutPort> upstreams, IImmutableDictionary<OutPort, InPort> downstreams, IImmutableDictionary<InPort, IModule> inOwners, IImmutableDictionary<OutPort, IModule> outOwners, IImmutableSet<IModule> allModules)
-            {
-                Upstreams = upstreams;
-                Downstreams = downstreams;
-                InOwners = inOwners;
-                OutOwners = outOwners;
-                AllModules = allModules;
-            }
         }
     }
 }

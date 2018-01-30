@@ -15,7 +15,6 @@ using Akka.Event;
 using Akka.IO;
 using Akka.Streams.Actors;
 using Akka.Streams.IO;
-using Akka.Util;
 
 #pragma warning disable 1587
 
@@ -26,17 +25,39 @@ namespace Akka.Streams.Implementation.IO
     /// </summary>
     internal class FilePublisher : Actors.ActorPublisher<ByteString>
     {
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="f">TBD</param>
+        /// <param name="completionPromise">TBD</param>
+        /// <param name="chunkSize">TBD</param>
+        /// <param name="startPosition">TBD</param>
+        /// <param name="initialBuffer">TBD</param>
+        /// <param name="maxBuffer">TBD</param>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown when one of the following conditions is met.
+        /// 
+        /// <ul>
+        /// <li>The specified <paramref name="chunkSize"/> is less than or equal to zero.</li>
+        /// <li>The specified <paramref name="startPosition"/> is less than zero</li>
+        /// <li>The specified <paramref name="initialBuffer"/> is less than or equal to zero.</li>
+        /// <li>The specified <paramref name="maxBuffer"/> is less than the specified <paramref name="initialBuffer"/>.</li>
+        /// </ul>
+        /// </exception>
+        /// <returns>TBD</returns>
         public static Props Props(FileInfo f, TaskCompletionSource<IOResult> completionPromise, int chunkSize,
-            int initialBuffer, int maxBuffer)
+            long startPosition, int initialBuffer, int maxBuffer)
         {
             if (chunkSize <= 0)
-                throw new ArgumentException($"chunkSize must be > 0 (was {chunkSize})");
+                throw new ArgumentException($"chunkSize must be > 0 (was {chunkSize})", nameof(chunkSize));
+            if(startPosition < 0)
+                throw new ArgumentException($"startPosition must be >= 0 (was {startPosition})", nameof(startPosition));
             if (initialBuffer <= 0)
-                throw new ArgumentException($"initialBuffer must be > 0 (was {initialBuffer})");
+                throw new ArgumentException($"initialBuffer must be > 0 (was {initialBuffer})", nameof(initialBuffer));
             if (maxBuffer < initialBuffer)
-                throw new ArgumentException($"maxBuffer must be >= initialBuffer (was {maxBuffer})");
+                throw new ArgumentException($"maxBuffer must be >= initialBuffer (was {maxBuffer})", nameof(maxBuffer));
 
-            return Actor.Props.Create(() => new FilePublisher(f, completionPromise, chunkSize, maxBuffer))
+            return Actor.Props.Create(() => new FilePublisher(f, completionPromise, chunkSize, startPosition, maxBuffer))
                 .WithDeploy(Deploy.Local);
         }
 
@@ -48,6 +69,7 @@ namespace Akka.Streams.Implementation.IO
         private readonly FileInfo _f;
         private readonly TaskCompletionSource<IOResult> _completionPromise;
         private readonly int _chunkSize;
+        private readonly long _startPosition;
         private readonly int _maxBuffer;
         private readonly byte[] _buffer;
         private readonly ILoggingAdapter _log;
@@ -56,11 +78,20 @@ namespace Akka.Streams.Implementation.IO
         private IImmutableList<ByteString> _availableChunks = ImmutableList<ByteString>.Empty;
         private FileStream _chan;
 
-        public FilePublisher(FileInfo f, TaskCompletionSource<IOResult> completionPromise, int chunkSize, int maxBuffer)
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="f">TBD</param>
+        /// <param name="completionPromise">TBD</param>
+        /// <param name="chunkSize">TBD</param>
+        /// <param name="startPosition">TBD</param>
+        /// <param name="maxBuffer">TBD</param>
+        public FilePublisher(FileInfo f, TaskCompletionSource<IOResult> completionPromise, int chunkSize, long startPosition, int maxBuffer)
         {
             _f = f;
             _completionPromise = completionPromise;
             _chunkSize = chunkSize;
+            _startPosition = startPosition;
             _maxBuffer = maxBuffer;
 
             _log = Context.GetLogger();
@@ -69,21 +100,31 @@ namespace Akka.Streams.Implementation.IO
 
         private bool EofEncountered => _eofReachedAtOffset != long.MinValue;
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void PreStart()
         {
             try
             {
                 _chan = _f.Open(FileMode.Open, FileAccess.Read);
+                if (_startPosition > 0)
+                    _chan.Position = _startPosition;
             }
             catch (Exception ex)
             {
-                _completionPromise.TrySetResult(new IOResult(0, Result.Failure<NotUsed>(ex)));
+                _completionPromise.TrySetResult(IOResult.Failed(0, ex));
                 OnErrorThenStop(ex);
             }
 
             base.PreStart();
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
+        /// <param name="message">TBD</param>
+        /// <returns>TBD</returns>
         protected override bool Receive(object message)
             => message.Match()
                 .With<Request>(() => ReadAndSignal(_maxBuffer))
@@ -135,7 +176,7 @@ namespace Akka.Streams.Implementation.IO
                     }
 
                     _readBytesTotal += readBytes;
-                    var newChunks = chunks.Add(ByteString.Create(_buffer, 0, readBytes));
+                    var newChunks = chunks.Add(ByteString.CopyFrom(_buffer, 0, readBytes));
                     return ReadAhead(maxChunks, newChunks);
                 }
                 catch (Exception ex)
@@ -149,6 +190,9 @@ namespace Akka.Streams.Implementation.IO
             return chunks;
         }
 
+        /// <summary>
+        /// TBD
+        /// </summary>
         protected override void PostStop()
         {
             base.PostStop();
@@ -159,11 +203,10 @@ namespace Akka.Streams.Implementation.IO
             }
             catch (Exception ex)
             {
-                _completionPromise.TrySetResult(new IOResult(_readBytesTotal, Result.Failure<NotUsed>(ex)));
+                _completionPromise.TrySetResult(IOResult.Failed(_readBytesTotal, ex));
             }
 
-            _completionPromise.TrySetResult(new IOResult(_readBytesTotal, Result.Success(NotUsed.Instance)));
+            _completionPromise.TrySetResult(IOResult.Success(_readBytesTotal));
         }
     }
 }
-

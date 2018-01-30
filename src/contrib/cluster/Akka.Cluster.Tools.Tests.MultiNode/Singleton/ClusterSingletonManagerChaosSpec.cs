@@ -14,6 +14,8 @@ using Akka.Configuration;
 using Akka.Remote.TestKit;
 using Akka.TestKit;
 using FluentAssertions;
+using Akka.TestKit.TestEvent;
+using Akka.TestKit.Internal;
 
 namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
 {
@@ -49,15 +51,7 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
         }
     }
 
-    public class ClusterSingletonManagerChaosNode1 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode2 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode3 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode4 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode5 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode6 : ClusterSingletonManagerChaosSpec { }
-    public class ClusterSingletonManagerChaosNode7 : ClusterSingletonManagerChaosSpec { }
-
-    public abstract class ClusterSingletonManagerChaosSpec : MultiNodeClusterSpec
+    public class ClusterSingletonManagerChaosSpec : MultiNodeClusterSpec
     {
         private class EchoStarted
         {
@@ -77,11 +71,11 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
 
         private readonly ClusterSingletonManagerChaosConfig _config;
 
-        protected ClusterSingletonManagerChaosSpec() : this(new ClusterSingletonManagerChaosConfig())
+        public ClusterSingletonManagerChaosSpec() : this(new ClusterSingletonManagerChaosConfig())
         {
         }
 
-        protected ClusterSingletonManagerChaosSpec(ClusterSingletonManagerChaosConfig config) : base(config)
+        protected ClusterSingletonManagerChaosSpec(ClusterSingletonManagerChaosConfig config) : base(config, typeof(ClusterSingletonManagerChaosSpec))
         {
             _config = config;
         }
@@ -89,6 +83,12 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
         protected override int InitialParticipantsValueFactory { get { return Roles.Count; } }
 
         [MultiNodeFact]
+        public void ClusterSingletonManager_in_chaotic_cluster_specs()
+        {
+            ClusterSingletonManager_in_chaotic_cluster_should_startup_6_node_cluster();
+            ClusterSingletonManager_in_chaotic_cluster_should_take_over_when_three_oldest_nodes_crash_in_6_nodes_cluster();
+        }
+
         public void ClusterSingletonManager_in_chaotic_cluster_should_startup_6_node_cluster()
         {
             Within(TimeSpan.FromSeconds(60), () =>
@@ -103,7 +103,7 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
                 {
                     ExpectMsg<EchoStarted>();
                 }, _config.First);
-                EnterBarrier("_config.First-started");
+                EnterBarrier("first-started");
 
                 Join(_config.Second, _config.First);
                 AwaitMemberUp(memberProbe, _config.Second, _config.First);
@@ -128,7 +128,36 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Singleton
                         .Be(GetAddress(_config.First));
                 }, _config.Controller);
 
-                EnterBarrier("_config.First-verified");
+                EnterBarrier("first-verified");
+            });
+        }
+
+        public void ClusterSingletonManager_in_chaotic_cluster_should_take_over_when_three_oldest_nodes_crash_in_6_nodes_cluster()
+        {
+            Within(TimeSpan.FromSeconds(90), () =>
+            {
+
+                // mute logging of deadLetters during shutdown of systems
+                if (!Log.IsDebugEnabled)
+                    Sys.EventStream.Publish(new Mute(new WarningFilter()));
+                EnterBarrier("logs-muted");
+
+                Crash(_config.First, _config.Second, _config.Third);
+                EnterBarrier("after-crash");
+
+                RunOn(() =>
+                {
+                    ExpectMsg<EchoStarted>();
+                }, _config.Fourth);
+                EnterBarrier("fourth-active");
+
+                RunOn(() =>
+                {
+                    Echo(_config.Fourth).Tell("hello");
+                    var address = ExpectMsg<IActorRef>(TimeSpan.FromSeconds(3)).Path.Address;
+                    GetAddress(_config.Fourth).Should().Be(address);
+                }, _config.Controller);
+                EnterBarrier("fourth-verified");
             });
         }
 

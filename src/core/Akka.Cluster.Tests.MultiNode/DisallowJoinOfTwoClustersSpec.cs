@@ -35,21 +35,15 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    public class DisallowJoinOfTwoClusterSpecNode1 : DisallowJoinOfTwoClusterSpec { }
-    public class DisallowJoinOfTwoClusterSpecNode2 : DisallowJoinOfTwoClusterSpec { }
-    public class DisallowJoinOfTwoClusterSpecNode3 : DisallowJoinOfTwoClusterSpec { }
-    public class DisallowJoinOfTwoClusterSpecNode4 : DisallowJoinOfTwoClusterSpec { }
-    public class DisallowJoinOfTwoClusterSpecNode5 : DisallowJoinOfTwoClusterSpec { }
-
-    public abstract class DisallowJoinOfTwoClusterSpec : MultiNodeClusterSpec
+    public class DisallowJoinOfTwoClusterSpec : MultiNodeClusterSpec
     {
         private readonly DisallowJoinOfTwoClusterSpecConfig _config;
 
-        protected DisallowJoinOfTwoClusterSpec() : this(new DisallowJoinOfTwoClusterSpecConfig())
+        public DisallowJoinOfTwoClusterSpec() : this(new DisallowJoinOfTwoClusterSpecConfig())
         {
         }
 
-        protected DisallowJoinOfTwoClusterSpec(DisallowJoinOfTwoClusterSpecConfig config) : base(config)
+        protected DisallowJoinOfTwoClusterSpec(DisallowJoinOfTwoClusterSpecConfig config) : base(config, typeof(DisallowJoinOfTwoClusterSpec))
         {
             _config = config;
         }

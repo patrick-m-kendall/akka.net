@@ -13,7 +13,7 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
 module Serialization = 
-    open Nessos.FsPickler
+    open MBrace.FsPickler
     open Akka.Serialization
 
     let internal serializeToBinary (fsp:BinarySerializer) o = 
@@ -28,7 +28,7 @@ module Serialization =
     // used for top level serialization
     type ExprSerializer(system) = 
         inherit Serializer(system)
-        let fsp = FsPickler.CreateBinary()
+        let fsp = FsPickler.CreateBinarySerializer()
         override __.Identifier = 9
         override __.IncludeManifest = true        
         override __.ToBinary(o) = serializeToBinary fsp o        
@@ -277,6 +277,7 @@ module Actors =
                         member __.ActorSelection(path : string) = context.ActorSelection(path)
                         member __.ActorSelection(path : ActorPath) = context.ActorSelection(path)
                         member __.Watch(aref:IActorRef) = context.Watch aref
+                        member __.WatchWith(aref:IActorRef, msg) = context.WatchWith (aref, msg)
                         member __.Unwatch(aref:IActorRef) = context.Unwatch aref
                         member __.Log = lazy (Akka.Event.Logging.GetLogger(context))
                         member __.Defer fn = deferables <- fn::deferables 
@@ -405,7 +406,7 @@ type ExprDeciderSurrogate(serializedExpr: byte array) =
     member __.SerializedExpr = serializedExpr
     interface ISurrogate with
         member this.FromSurrogate _ = 
-            let fsp = Nessos.FsPickler.FsPickler.CreateBinary()
+            let fsp = MBrace.FsPickler.FsPickler.CreateBinarySerializer()
             let expr = (Serialization.deserializeFromBinary<Expr<(exn->Directive)>> fsp (this.SerializedExpr))
             ExprDecider(expr) :> ISurrogated
 
@@ -416,7 +417,7 @@ and ExprDecider (expr: Expr<(exn->Directive)>) =
         member this.Decide (e: exn): Directive = this.Compiled.Value (e)
     interface ISurrogated with
         member this.ToSurrogate _ = 
-            let fsp = Nessos.FsPickler.FsPickler.CreateBinary()        
+            let fsp = MBrace.FsPickler.FsPickler.CreateBinarySerializer()        
             ExprDeciderSurrogate(Serialization.serializeToBinary fsp this.Expr) :> ISurrogate
         
 type Strategy = 

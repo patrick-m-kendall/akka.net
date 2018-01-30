@@ -55,19 +55,15 @@ namespace Akka.Cluster.Tools.Tests.MultiNode.Client
         }
     }
 
-    public class ClusterClientStopMultiNode1 : ClusterClientStopSpec { }
-    public class ClusterClientStopMultiNode2 : ClusterClientStopSpec { }
-    public class ClusterClientStopMultiNode3 : ClusterClientStopSpec { }
-
-    public abstract class ClusterClientStopSpec : MultiNodeClusterSpec
+    public class ClusterClientStopSpec : MultiNodeClusterSpec
     {
         private readonly ClusterClientStopSpecConfig _config;
 
-        protected ClusterClientStopSpec() : this(new ClusterClientStopSpecConfig())
+        public ClusterClientStopSpec() : this(new ClusterClientStopSpecConfig())
         {
         }
 
-        protected ClusterClientStopSpec(ClusterClientStopSpecConfig config) : base(config)
+        protected ClusterClientStopSpec(ClusterClientStopSpecConfig config) : base(config, typeof(ClusterClientStopSpec))
         {
             _config = config;
         }

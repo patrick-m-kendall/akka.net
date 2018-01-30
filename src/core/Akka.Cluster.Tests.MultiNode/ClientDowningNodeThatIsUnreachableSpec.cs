@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using Akka.Cluster.TestKit;
@@ -35,67 +36,19 @@ namespace Akka.Cluster.Tests.MultiNode
         }
     }
 
-    class ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode1 : ClientDowningNodeThatIsUnreachableSpec
+    class ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode : ClientDowningNodeThatIsUnreachableSpec
     {
-        public ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode1()
-            : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode2 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode2()
-            : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode3 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode3()
-            : base(true)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode4 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode4()
-            : base(true)
+        public ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode()
+            : base(true, typeof(ClientDowningNodeThatIsUnreachableWithFailureDetectorPuppetMultiNode))
         {
         }
     }
 
 
-    class ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode1 : ClientDowningNodeThatIsUnreachableSpec
+    class ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode : ClientDowningNodeThatIsUnreachableSpec
     {
-        public ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode1()
-            : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode2 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode2()
-            : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode3 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode3()
-            : base(false)
-        {
-        }
-    }
-
-    class ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode4 : ClientDowningNodeThatIsUnreachableSpec
-    {
-        public ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode4()
-            : base(false)
+        public ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode()
+            : base(false, typeof(ClientDowningNodeThatIsUnreachableWithAccrualFailureDetectorMultiNode))
         {
         }
     }
@@ -104,13 +57,13 @@ namespace Akka.Cluster.Tests.MultiNode
     {
         private readonly ClientDowningNodeThatIsUnreachableMultiNodeConfig _config;
 
-        protected ClientDowningNodeThatIsUnreachableSpec(bool failureDetectorPuppet)
-            : this(new ClientDowningNodeThatIsUnreachableMultiNodeConfig(failureDetectorPuppet))
+        protected ClientDowningNodeThatIsUnreachableSpec(bool failureDetectorPuppet, Type type)
+            : this(new ClientDowningNodeThatIsUnreachableMultiNodeConfig(failureDetectorPuppet), type)
         {
         }
 
-        protected ClientDowningNodeThatIsUnreachableSpec(ClientDowningNodeThatIsUnreachableMultiNodeConfig config)
-            : base(config)
+        protected ClientDowningNodeThatIsUnreachableSpec(ClientDowningNodeThatIsUnreachableMultiNodeConfig config, Type type)
+            : base(config, type)
         {
             _config = config;
         }
